@@ -227,13 +227,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   argv[0] = strtok_r(copy_fn, " ", &save_ptr);
   int argc = 1; //firstcmd
   
-  //int counter = 0;
+  /*int counter = 0;*/
   while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
   {
     argv[argc] = token;
- 	//counter ++;
+ 	/*counter ++;*/
 	argc++;
-  } // now argc will have number of cmds and argv will have tokenized command
+  } /* now argc will have number of cmds and argv will have tokenized command*/
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -324,20 +324,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
-//if no error set up stack
+/*if no error set up stack*/
 
   int argc_count = argc;
        
-  uint32_t * argv_pointer[argc]; // this will point to the argument eg argv[0] --> ld\0
+  uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  
-//put int char for argv
+/*put int char for argv*/
 	int counter_letter =0;
  while(argc_count != 0)
   {
-   *esp = *esp - (strlen(argv[argc_count])+1)*sizeof(char); // cmd put in from right to left ! so just use i instead of making new counter
-   argv_pointer[argc_count] = (uint32_t *)*esp;				//put in the address of esp to remember where argv[i] is
-   memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);//copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start
-   counter_letter = counter_letter + strlen(argv[argc_count])+1;	//so shouldn't metter to much check here later if i get errors
+   *esp = *esp - (strlen(argv[argc_count])+1)*sizeof(char); /* cmd put in from right to left ! so just use i instead of making new counter*/
+   argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
+   memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+   counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
    argc_count--;
   }
 /*
@@ -365,23 +365,23 @@ for(int c =0; c<filler; c++)
   }
 
      *esp = *esp - 4;
-     (*(int *)(*esp)) = 0; // this will be the last argv[ ] null/0 
+     (*(int *)(*esp)) = 0; /* this will be the last argv[ ] null/0*/ 
     
 
   argc_count = argc;
 
    while( argc_count != 0)
   {
-    *esp = *esp - 4;//32bit
+    *esp = *esp - 4;/*32bit?*/
     (*(uint32_t **)(*esp)) = argv_pointer[argc_count];
 	argc_count--;
    }
     *esp = *esp - 4;
-    (*(uintptr_t  **)(*esp)) = (*esp+4); // argv -> argv[0]
+    (*(uintptr_t  **)(*esp)) = (*esp+4); /* argv -> argv[0]*/
     *esp = *esp - 4;
     *(int *)(*esp) = argc;
     *esp = *esp - 4;
-    (*(int *)(*esp))=0;	// return address =0 
+    (*(int *)(*esp))=0;	/* return address =0 */
 
 
 
