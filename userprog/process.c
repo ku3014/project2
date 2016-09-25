@@ -224,7 +224,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   char *token;
   char *save_ptr;
-  argv[0] = strtok_r(cmd, " ", &save_ptr);
+  argv[0] = strtok_r(copy_fn, " ", &save_ptr);
   int argc = 1; //firstcmd
   
   //int counter = 0;
@@ -341,9 +341,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
    i--;
   }
 /*
-STACK top return address = null
-
-
+STACK top| return address = null
+			argc num command
+			argv points right under
+			argv 0
+			argv 1
+			arg ... last = null
+			empty space
+	esp-4		char from right to left			
+ 	 esp-> pysicalbase or something
 */
 int filler = counter_letter%4;
 char fillarr[filler+1];
@@ -359,7 +365,7 @@ for(int c =0; c<filler; c++)
   }
 
      *esp = *esp - 4;
-     (*(int *)(*esp)) = 0; // 
+     (*(int *)(*esp)) = 0; // this will be the last argv[ ] null/0 
     
 
  i = argc;
