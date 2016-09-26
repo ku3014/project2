@@ -5,10 +5,11 @@
 #include "threads/thread.h"
 #include "threads/init.h"
 
+
 struct file_list{
 	struct list_elem elem;
 	struct file *file;
-	int number:
+	int handle;
 };
 
 static void syscall_handler (struct intr_frame *);
@@ -83,7 +84,29 @@ Each process has an independent set of file descriptors. File descriptors are no
 
 When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. 
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
-int open (const char *file) {return 0;}
+int open (const char *file) {
+	char* file_to_open = copy_in_string(file);
+	if(file_to_open == NULL){sys_exit(-1);}
+
+	struct file_list *fd;
+	fd = malloc (sizeof(*fd));
+	
+	int handle = -1;
+	struct thread *current_thread = thread_current();
+	if(fd != NULL){
+		fd->file = filesys_open(file_to_open);
+		if(fd->file !=NULL){
+			current_thread->handle = current_thread->handle + 1;
+			handle = current_thread->handle;
+			fd->handle = current_thread->handle;
+			list_push_front(&current_thread->file_lists, &fd->elem);
+		}
+		else{
+			free(fd);
+		}
+	}		
+	return handle;
+}
 
 int filesize (int fd) {return 0;}
 /* Returns the size, in bytes, of the file open as fd. */
@@ -111,11 +134,24 @@ unsigned tell (int fd) {return 0;}
 /* Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file. */
 
 void close (int fd) {
-	close(fd);
+	struct file_list  *file_to_close = find_file(fd);
+	if(file_to_close == NULL){return;}
+	file_close(file_to_close->file);
+	list_remove(&file_to_close->elem);
+	return;
 }
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 
-struct file_descriptor * find_file (int number){
-	/* get current file_descriptor*/
-	struct list_elem *file_no
+struct file_list * find_file (int number){
+	/* still to do:  get current file_list*/
+	struct thread *current_thread = thread_current();
+	struct list_elem *file_no;
+	for(file_no = list_begin(current_thread->file_lists); file_no != list_end(current_thread->file_lists); file_no = list_next(file_no)){
+		struct file_list *fl = list_entry(file_no, struct file_list, elem);
+		if(fl->number == number){
+			return fl;
+		}
+	}
+	sys_exit(-1);
+	return(NULL); /*file not found*/
 }
