@@ -5,6 +5,12 @@
 #include "threads/thread.h"
 #include "threads/init.h"
 
+struct file_list{
+	struct list_elem elem;
+	struct file *file;
+	int number:
+};
+
 static void syscall_handler (struct intr_frame *);
 
 /*
@@ -104,5 +110,12 @@ so writes past end of file will return an error.) These semantics are implemente
 unsigned tell (int fd) {return 0;}
 /* Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file. */
 
-void close (int fd) {}
+void close (int fd) {
+	close(fd);
+}
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
+
+struct file_descriptor * find_file (int number){
+	/* get current file_descriptor*/
+	struct list_elem *file_no
+}
