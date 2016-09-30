@@ -13,7 +13,7 @@
 void check_arg(struct intr_frame *f, int *args, int paremc);
 static bool is_user(const void* vaddr);
 static struct lock locker;
-static struct file* find_file(int fd);
+static struct fd_elem* find_file(int number);
 static bool is_user(const void* vaddr){
 	return vaddr < PHYS_BASE;
 }
@@ -315,7 +315,7 @@ struct fd_elem * find_file (int number){
 	struct list_elem *file_no;
 	for(file_no = list_begin(current_thread->file_lists); file_no != list_end(current_thread->file_lists); file_no = list_next(file_no)){
 		struct fd_elem *fl = list_entry(file_no, struct fd_elem, elem);
-		if(fl->number == number){
+		if(fl->handle == number){
 			return fl;
 		}
 	}
