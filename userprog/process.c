@@ -36,8 +36,13 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
 
+	char *save_ptr;
+	strlcpy (fn_copy, file_name, PGSIZE);
+  
+	fn_copy = strtok_r(fn_copy, " ", &save_ptr);
+
+  
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -327,9 +332,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 /*if no error set up stack*/
 
   int argc_count = argc;
-       
-  uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
- 
+    uint32_t * argv_pointer[PGSIZE];   
+  /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
+ /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
 	int counter_letter =0;
  while(argc_count != 0)
@@ -352,7 +357,10 @@ STACK top| return address = null
  	 esp-> pysicalbase or something
 */
 int filler = counter_letter%4;
-char fillarr[filler+1];
+
+/*char fillarr[filler+1];*/
+/*
+char* fillarr = (char*) malloc ( sizeof(char) * (filler+1));
 for(int c =0; c<filler; c++)
 {
   fillarr[c] = '0';
@@ -363,10 +371,15 @@ for(int c =0; c<filler; c++)
 	memcpy(*esp,fillarr,filler);
 
   }
+free(fillarr);
 
+*/
+
+	*esp = *esp - filler;
      *esp = *esp - 4;
-     (*(int *)(*esp)) = 0; /* this will be the last argv[ ] null/0*/ 
-    
+     (*(uint32_t *)(*esp)) = 0; /*  buffer 0 thing*/ 
+    *esp = *esp - 4;
+	(*(uint32_t **)(*esp)) = 0;
 
   argc_count = argc;
 
@@ -386,8 +399,7 @@ for(int c =0; c<filler; c++)
 
 
 
-
-
+ /*pfree(argv_pointer);
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 

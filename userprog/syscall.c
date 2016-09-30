@@ -4,9 +4,22 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
+#include <list.h>
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "threads/synch.h"
+#include "threads/vaddr.h"
+//#include "lib/stdbool.h"
+void check_arg(struct intr_frame *f, int *args, int paremc);
+static bool is_user(const void* vaddr);
+static struct lock locker;
+static struct file* find_file(int fd);
+static bool is_user(const void* vaddr){
+	return vaddr < PHYS_BASE;
+}
 
 
-struct file_list{
+struct fd_elem{
 	struct list_elem elem;
 	struct file *file;
 	int handle;
@@ -22,6 +35,8 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init (&locker);
+  list_init (&file_list);
 }
 
 static void
@@ -59,6 +74,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Create a file. */
     case SYS_CREATE:               
       {
+		
         break;
       }
       
@@ -114,6 +130,24 @@ syscall_handler (struct intr_frame *f UNUSED)
   printf ("system call!\n");
   thread_exit ();
 }
+void check_arg(struct intr_frame *f, int *args, int paremc){
+	int *ptr;
+	ptr = f->esp;
+	if(!is_user(ptr)){
+		exit(-1);
+	}
+	if(*ptr <SYS_HALT){
+		exit(-1);
+	}
+	for(int i =0; i < paremc ; i++){
+		if(!is_user(ptr+i+1)){
+			exit(-1);
+		}
+		args[i]=*ptr;
+	}
+
+
+}
 
 /* Terminates Pintos by calling power_off() (declared in threads/init.h). This should be seldom used, because you lose some information about
 possible deadlock situations, etc. */
@@ -125,7 +159,7 @@ void halt (void) {
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
 void exit (int status) {
   
-  
+  	thread_exit();
   
 }
 
@@ -224,7 +258,31 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-  return 0;
+	struct file *f;
+	int ret = -1;
+	lock_acquire(&locker);
+	if(fd == STDOUT_FILENO){
+		putbuf(buffer, size);
+	}else if(fd == STDIN_FILENO){
+		lock_release(&locker);		
+		return -1;
+	}else if(!is_user(buffer)||is_user(buffer + size)){
+
+		lock_release(&locker);
+		return -1;
+	}else{
+		f = find_file(fd);
+		if(!f){
+			lock_release(&locker);
+			return -1;
+		}
+		ret = file_write(f, buffer, size);
+
+	}
+	lock_release (&locker);
+	return ret;
+
+
 }
 
 /* Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file. (Thus, a position of 0 is the file's start.)
@@ -242,7 +300,7 @@ unsigned tell (int fd) {
 
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 void close (int fd) {
-	struct file_list  *file_to_close = find_file(fd);
+	struct fd_elem  *file_to_close = find_file(fd);
 	if(file_to_close == NULL){return;}
 	file_close(file_to_close->file);
 	list_remove(&file_to_close->elem);
@@ -250,12 +308,13 @@ void close (int fd) {
 }
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 
-struct file_list * find_file (int number){
+
+struct fd_elem * find_file (int number){
 	/* still to do:  get current file_list*/
 	struct thread *current_thread = thread_current();
 	struct list_elem *file_no;
 	for(file_no = list_begin(current_thread->file_lists); file_no != list_end(current_thread->file_lists); file_no = list_next(file_no)){
-		struct file_list *fl = list_entry(file_no, struct file_list, elem);
+		struct fd_elem *fl = list_entry(file_no, struct fd_elem, elem);
 		if(fl->number == number){
 			return fl;
 		}
