@@ -4,6 +4,25 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
+#include <list.h>
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "threads/synch.h"
+#include "threads/vaddr.h"
+//#include "lib/stdbool.h"
+void check_arg(struct intr_frame *f, int *args, int paremc);
+static bool is_user(const void* vaddr);
+static struct lock locker;
+static struct list file_list;
+static struct file* find_file(int fd);
+struct fd_elem {
+	struct file *file;
+	struct list_elem elem;
+	int fd;
+};
+static bool is_user(const void* vaddr){
+	return vaddr < PHYS_BASE;
+}
 
 static void syscall_handler (struct intr_frame *);
 
@@ -15,6 +34,8 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init (&locker);
+  list_init (&file_list);
 }
 
 static void
@@ -52,6 +73,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Create a file. */
     case SYS_CREATE:               
       {
+		
         break;
       }
       
@@ -106,6 +128,24 @@ syscall_handler (struct intr_frame *f UNUSED)
   
   printf ("system call!\n");
   thread_exit ();
+}
+void check_arg(struct intr_frame *f, int *args, int paremc){
+	int *ptr;
+	ptr = f->esp;
+	if(!is_user(ptr)){
+		exit(-1);
+	}
+	if(*ptr <SYS_HALT){
+		exit(-1);
+	}
+	for(int i =0; i < paremc ; i++){
+		if(!is_user(ptr+i+1)){
+			exit(-1);
+		}
+		args[i]=*ptr;
+	}
+
+
 }
 
 /* Terminates Pintos by calling power_off() (declared in threads/init.h). This should be seldom used, because you lose some information about
@@ -175,7 +215,23 @@ Each process has an independent set of file descriptors. File descriptors are no
 When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. 
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
 int open (const char *file) {
-  return 0;
+  struct file *f;
+  struct fd_elem *fde;
+  int ret = -1;
+  fde = (struct fd_elem*) malloc(sizeof (struct fd_elem));
+  if(!file){
+    return -1;
+  }
+  if(!is_user(file)){
+	return -1;
+  }
+  f= filesys_open(file);
+  if(!f){
+	return -1;
+  }
+  fde->fd = 3;
+  list_push_back(&file_list,&fde->elem);
+   return ret = fde->fd;
 }
 
 /* Returns the size, in bytes, of the file open as fd. */
@@ -197,7 +253,31 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-  return 0;
+	struct file *f;
+	int ret = -1;
+	lock_acquire(&locker);
+	if(fd == STDOUT_FILENO){
+		putbuf(buffer, size);
+	}else if(fd == STDIN_FILENO){
+		lock_release(&locker);		
+		return -1;
+	}else if(!is_user(buffer)||is_user(buffer + size)){
+
+		lock_release(&locker);
+		return -1;
+	}else{
+		f = find_file(fd);
+		if(!f){
+			lock_release(&locker);
+			return -1;
+		}
+		ret = file_write(f, buffer, size);
+
+	}
+	lock_release (&locker);
+	return ret;
+
+
 }
 
 /* Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file. (Thus, a position of 0 is the file's start.)
@@ -218,5 +298,16 @@ void close (int fd) {
 
 }
 
+static struct file* find_file(int fd){
+	struct fd_elem *ret;
+	struct list_elem *find;
 
+	for(find = list_begin(&file_list); find != list_end(&file_list); find = list_next(find)){
+		ret = list_entry (find, struct fd_elem, elem);
+		if(ret->fd == fd){
+			return ret->file;
+		}
+	}
+	return NULL;
 
+}
