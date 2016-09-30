@@ -158,7 +158,7 @@ void halt (void) {
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
 void exit (int status) {
   
-  
+  	thread_exit();
   
 }
 
