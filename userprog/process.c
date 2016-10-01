@@ -29,7 +29,11 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
+<<<<<<< HEAD
     printf("makes it to process_execute\n");
+=======
+	printf("makes it to process_execute\n");
+>>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
   char *fn_copy;
   tid_t tid;
 
@@ -42,14 +46,24 @@ process_execute (const char *file_name)
     char *save_ptr;
     strlcpy (fn_copy, file_name, PGSIZE);
   
+<<<<<<< HEAD
     file_name = strtok_r(fn_copy, " ", &save_ptr);
+=======
+	file_name = strtok_r(fn_copy, " ", &save_ptr);
+>>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
 
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+<<<<<<< HEAD
      
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy); 
+=======
+	 
+	if (tid == TID_ERROR)
+    	palloc_free_page (fn_copy); 
+>>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
   return tid;
 }
 
@@ -95,11 +109,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1){
-
-
-
-    }
+  while(1){}
 }
 
 /* Free the current process's resources. */
@@ -232,8 +242,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   //make a copy of file_name so i can change 
  // char* copy_fn[25];
-    char** copy_fn = (char**)malloc(25*sizeof(char));  
-    strlcpy(copy_fn,file_name,PGSIZE);
+	char** copy_fn = (char**)malloc(25*sizeof(char));  
+	strlcpy(copy_fn,file_name,PGSIZE);
   //char* argv[128];
   char** argv = (char**)malloc(128*sizeof(char));
   
@@ -337,38 +347,40 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-    printf("made it up to right befor stack\n");
+	printf("made it up to right befor stack\n");
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-    printf("made it to set up stack!\n");
+	printf("made it to set up stack!\n");
   int argc_count = argc;
    // uint32_t * argv_pointer[25];   
-    uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
+	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
 /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
 
-    printf("esp - \n");
-//    *esp = *esp -1;
-    printf("tester\n");
-    int tester = (strlen(argv[argc_count])+1)*sizeof(char);
-    printf("testerfinished\n");
-    int counter_letter =0;
+
+	printf("esp - \n");
+//	*esp = *esp -1;
+	printf("tester\n");
+	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
+	printf("testerfinished\n");
+	int counter_letter =0;
  while(argc_count != 0)
   {
-    printf("1\n");
+	printf("1\n");
    *esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
-     printf("2\n");  
-    argv_pointer[argc_count] = (uint32_t *)*esp;                /*put in the address of esp to remember where argv[i] is*/
+	 printf("2\n");  
+	argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
 printf("3\n");   
-    memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+	memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
    printf("4\n");
-    counter_letter = counter_letter + strlen(argv[argc_count])+1;    /*so shouldn't metter to much check here later if i get errors*/
+	counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
    printf("5\n");
-    argc_count--;
+	argc_count--;
   }
-    printf("made it to pushing in string)\n");
+	printf("made it to pushing in string)\n");
+
 /*
 STACK top| return address = null
             argc num command
