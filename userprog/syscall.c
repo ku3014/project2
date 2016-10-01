@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "devices/shutdown.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -9,7 +10,25 @@
 #include "userprog/process.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include <stdlib.h>
 //#include "lib/stdbool.h"
+
+static void halt (void);
+static void exit(int);
+static tid_t exec (const char *cmd_line);
+static int wait (tid_t pid);
+static bool create (const char *file, unsigned initial_size);
+static bool remove (const char *file);
+static int open (const char *file);
+static int filesize (int fd);
+static int read (int fd, void *buffer, unsigned size);
+static int write (int fd, const void *buffer, unsigned size);
+static void seek (int fd, unsigned position);
+static unsigned tell (int fd);
+static void close (int fd);
+
+
+
 void check_arg(struct intr_frame *f, int *args, int paremc);
 static bool is_user(const void* vaddr);
 static struct lock locker;
@@ -36,19 +55,24 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init (&locker);
   list_init (&file_list);
+	printf("DID THIS EVEN WORK\n");
 }
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int call = * (int *)f->esp;
+	printf("IT CALLS SYSCALL HANDLER\n");
+
+  // int call = * (int *)f->esp;
   // Check for which call it is
-  
-  switch(call) {
+  int temp = (* (int *) f->esp);
+	printf("%d\n",temp);
+  switch(temp) {
     /* Halt the operating system. */
     case SYS_HALT:
       {
-        halt();
+	  	halt();
+	  	printf("CALLS SYSCALL INIT\n");
         break;
       }
       
@@ -144,20 +168,26 @@ void check_arg(struct intr_frame *f, int *args, int paremc){
 		}
 		args[i]=*ptr;
 	}
-
-
 }
 
 /* Terminates Pintos by calling power_off() (declared in threads/init.h). This should be seldom used, because you lose some information about
 possible deadlock situations, etc. */
 void halt (void) {
+	printf("WAT\n");
   shutdown_power_off();
 }
 
 /* Terminates the current user program, returning status to the kernel. If the process's parent waits for it (see below), this is the status that will be returned. 
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
 void exit (int status) {
-  
+	
+	// Retrieve current process
+	struct thread *temp = thread_current();
+	/* if(thread_alive(temp->parent)) {
+		temp->cp->status = status;
+	}
+	printf("%s: exit(%d)\n", temp->name, status);
+	*/
   	thread_exit();
   
 }
@@ -191,7 +221,7 @@ Consider all the ways a wait can occur: nested waits (A waits for B, then B wait
 Implementing this system call requires considerably more work than any of the rest.
 */
 int wait (tid_t pid) {
-  return 1;
+  while(1);
 }
 
 /* Creates a new file called file initially initial_size bytes in size. Returns true if successful, false otherwise. Creating a new file 

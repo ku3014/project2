@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -28,6 +29,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
+    printf("makes it to process_execute\n");
   char *fn_copy;
   tid_t tid;
 
@@ -37,16 +39,17 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
 
-	char *save_ptr;
-	strlcpy (fn_copy, file_name, PGSIZE);
+    char *save_ptr;
+    strlcpy (fn_copy, file_name, PGSIZE);
   
-	fn_copy = strtok_r(fn_copy, " ", &save_ptr);
+    file_name = strtok_r(fn_copy, " ", &save_ptr);
 
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+     
+    if (tid == TID_ERROR)
+        palloc_free_page (fn_copy); 
   return tid;
 }
 
@@ -58,14 +61,13 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
+
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -93,7 +95,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  while(1){
+
+
+
+    }
 }
 
 /* Free the current process's resources. */
@@ -136,7 +142,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -213,7 +219,10 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
+  
+  printf("load made it\n");
   struct thread *t = thread_current ();
+  printf("is it this thread\n");
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
@@ -222,10 +231,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 
   //make a copy of file_name so i can change 
-  char copy_fn[PGSIZE];
-  strlcpy(copy_fn,file_name,PGSIZE);
-  char* argv[PGSIZE];
-  
+ // char* copy_fn[25];
+    char** copy_fn = (char**)malloc(25*sizeof(char));  
+    strlcpy(copy_fn,file_name,PGSIZE);
+  //char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
   
   char *token;
   char *save_ptr;
@@ -236,8 +246,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
   {
     argv[argc] = token;
- 	/*counter ++;*/
-	argc++;
+     /*counter ++;*/
+    argc++;
   } /* now argc will have number of cmds and argv will have tokenized command*/
 
   /* Allocate and activate page directory. */
@@ -327,34 +337,48 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
+    printf("made it up to right befor stack\n");
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-
+    printf("made it to set up stack!\n");
   int argc_count = argc;
-    uint32_t * argv_pointer[PGSIZE];   
-  /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
+   // uint32_t * argv_pointer[25];   
+    uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
+/*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
-	int counter_letter =0;
+
+    printf("esp - \n");
+//    *esp = *esp -1;
+    printf("tester\n");
+    int tester = (strlen(argv[argc_count])+1)*sizeof(char);
+    printf("testerfinished\n");
+    int counter_letter =0;
  while(argc_count != 0)
   {
-   *esp = *esp - (strlen(argv[argc_count])+1)*sizeof(char); /* cmd put in from right to left ! so just use i instead of making new counter*/
-   argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
-   memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
-   counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
-   argc_count--;
+    printf("1\n");
+   *esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
+     printf("2\n");  
+    argv_pointer[argc_count] = (uint32_t *)*esp;                /*put in the address of esp to remember where argv[i] is*/
+printf("3\n");   
+    memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+   printf("4\n");
+    counter_letter = counter_letter + strlen(argv[argc_count])+1;    /*so shouldn't metter to much check here later if i get errors*/
+   printf("5\n");
+    argc_count--;
   }
+    printf("made it to pushing in string)\n");
 /*
 STACK top| return address = null
-			argc num command
-			argv points right under
-			argv 0
-			argv 1
-			arg ... last = null
-			empty space
-	esp-4		char from right to left			
- 	 esp-> pysicalbase or something
+            argc num command
+            argv points right under
+            argv 0
+            argv 1
+            arg ... last = null
+            empty space
+    esp-4        char from right to left            
+      esp-> pysicalbase or something
 */
 int filler = counter_letter%4;
 
@@ -367,19 +391,19 @@ for(int c =0; c<filler; c++)
 }
  if(filler != 0)
   {
-	*esp = *esp - filler*sizeof(char);
-	memcpy(*esp,fillarr,filler);
+    *esp = *esp - filler*sizeof(char);
+    memcpy(*esp,fillarr,filler);
 
   }
 free(fillarr);
 
 */
 
-	*esp = *esp - filler;
+    *esp = *esp - filler;
      *esp = *esp - 4;
      (*(uint32_t *)(*esp)) = 0; /*  buffer 0 thing*/ 
     *esp = *esp - 4;
-	(*(uint32_t **)(*esp)) = 0;
+    (*(uint32_t **)(*esp)) = 0;
 
   argc_count = argc;
 
@@ -387,17 +411,17 @@ free(fillarr);
   {
     *esp = *esp - 4;/*32bit?*/
     (*(uint32_t **)(*esp)) = argv_pointer[argc_count];
-	argc_count--;
+    argc_count--;
    }
     *esp = *esp - 4;
     (*(uintptr_t  **)(*esp)) = (*esp+4); /* argv -> argv[0]*/
     *esp = *esp - 4;
     *(int *)(*esp) = argc;
     *esp = *esp - 4;
-    (*(int *)(*esp))=0;	/* return address =0 */
+    (*(int *)(*esp))=0;    /* return address =0 */
 
 
-
+printf("finished stack\n");
 
  /*pfree(argv_pointer);
   /* Start address. */
@@ -410,7 +434,7 @@ free(fillarr);
   file_close (file);
   return success;
 }
-
+
 
 
 
