@@ -24,6 +24,20 @@ static struct fd_elem* find_file(int number);
 static void syscall_handler (struct intr_frame *);
 char * string_to_page(const char * string);
 
+void halt (void);
+void exit (int status);
+tid_t exec(const char *cmd_line);
+int wait (tid_t pid);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+int open (const char *file);
+int filesize (int fd);
+int read (int fd, void *buffer, unsigned size);
+int write(int fd, const void *buffer, unsigned size);
+void seek (int fd, unsigned position);
+unsigned tell (int fd);
+void close (int fd);
+
 static bool is_user(const void* vaddr){
 	if(vaddr == NULL) {return false;}
 	return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL); 
@@ -170,8 +184,7 @@ void halt (void) {
 
 /* Terminates the current user program, returning status to the kernel. If the process's parent waits for it (see below), this is the status that will be returned. 
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
-void exit (int status) {
-  
+void exit (int status) { 
   	thread_exit();
   
 }
@@ -212,13 +225,13 @@ int wait (tid_t pid) {
 /* Creates a new file called file initially initial_size bytes in size. Returns true if successful, false otherwise. Creating a new file 
 does not open it: opening the new file is a separate operation which would require a open system call. */
 bool create (const char *file, unsigned initial_size) {
-  return true;
+  return filesys_create(file, initial_size);
 }
 
 /* Deletes the file called file. Returns true if successful, false otherwise. A file may be removed regardless of whether it is open or closed, 
 and removing an open file does not close it. See Removing an Open File, for details. */
 bool remove (const char *file) {
-  return true;
+  return filesys_remove(file);
 }
 
 /* Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
@@ -340,12 +353,16 @@ A seek past the current end of a file is not an error. A later read obtains 0 by
 A later write extends the file, filling any unwritten gap with zeros. (However, in Pintos files have a fixed length until project 4 is complete, 
 so writes past end of file will return an error.) These semantics are implemented in the file system and do not require any special effort in system call implementation. */
 void seek (int fd, unsigned position) {
-
+	struct fd_elem *f = find_file(fd);
+	if(f == NULL){thread_exit();}
+	file_seek(f->file, position);
 }
 
 /* Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file. */
 unsigned tell (int fd) {
-  return 0;
+	struct fd_elem *f = find_file(fd);
+	if(f == NULL){thread_exit();}
+	return file_tell(f->file);
 }
 
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
