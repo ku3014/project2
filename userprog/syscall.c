@@ -251,13 +251,41 @@ int open (const char *file) {
 
 /* Returns the size, in bytes, of the file open as fd. */
 int filesize (int fd) {
-  return 0;
+	struct fd_elem * f = find_file(fd);
+	lock_acquire(&locker);
+	int file_size = file_length(f->file);
+	lock_release(&locker);
+	return file_size;
 }
 
 /* Reads size bytes from the file open as fd into buffer. Returns the number of bytes actually read (0 at end of file), or -1 if the file could 
 not be read (due to a condition other than end of file). Fd 0 reads from the keyboard using input_getc(). */
 int read (int fd, void *buffer, unsigned size) {
-  return 0;
+	struct fd_elem *f = NULL;
+	int num_bytes_read = 0;
+	
+	if(fd != STDIN_FILENO){f = find_file(fd);if(f == NULL){return -1;}} /*if not standard lookup file */
+	
+	lock_acquire(&locker);
+	
+	while(size > 0){
+		int bytes;
+		if(fd == STDIN_FILENO){
+			strlcat(buffer, input_getc(), 1);
+			bytes = 1;
+		}
+		else{
+			bytes = file_read(f->file, buffer, size);
+		}
+		if(bytes < 0){
+			if(num_bytes_read == 0){num_bytes_read = -1;}
+			break;
+		}
+		num_bytes_read = num_bytes_read + bytes;
+		size = size - bytes;
+	}
+	lock_release(&locker);
+	return num_bytes_read;
 }
 
 /* Writes size bytes from buffer to the open file fd. Returns the number of bytes actually written, which may be less than size if some bytes could not be written.
@@ -269,30 +297,34 @@ at least as long as size is not bigger than a few hundred bytes. (It is reasonab
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
 	struct file *f;
-	int ret = -1;
-	lock_acquire(&locker);
-	if(fd == STDOUT_FILENO){
-		putbuf(buffer, size);
-	}else if(fd == STDIN_FILENO){
-		lock_release(&locker);		
-		return -1;
-	}else if(!is_user(buffer)||is_user(buffer + size)){
+	int num_bytes_written = 0;
 
-		lock_release(&locker);
-		return -1;
-	}else{
-		f = find_file(fd);
-		if(!f){
+	if(fd != STDOUT_FILENO){f = find_file(fd);} 
+
+	lock_acquire(&locker);
+	while(size > 0){
+		int bytes;
+		if(fd == STDOUT_FILENO){
+			putbuf(buffer, size);
+			bytes = size;
+		}else if(fd == STDIN_FILENO){
+			lock_release(&locker);		
+			return -1;
+		}else if(!is_user(buffer)||is_user(buffer + size)){
 			lock_release(&locker);
 			return -1;
+		}else{
+			if(!f){
+				lock_release(&locker);
+				return -1;
+			}
+			bytes = file_write(f, buffer, size);
 		}
-		ret = file_write(f, buffer, size);
-
+		num_bytes_written = num_bytes_written + bytes;
+		size = size - bytes;
 	}
 	lock_release (&locker);
-	return ret;
-
-
+	return num_bytes_written;
 }
 
 /* Changes the next byte to be read or written in open file fd to position, expressed in bytes from the beginning of the file. (Thus, a position of 0 is the file's start.)
