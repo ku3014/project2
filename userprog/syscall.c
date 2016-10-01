@@ -25,7 +25,8 @@ static void syscall_handler (struct intr_frame *);
 char * string_to_page(const char * string);
 
 static bool is_user(const void* vaddr){
-	return vaddr < PHYS_BASE;
+	if(vaddr == NULL) {return false;}
+	return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL); 
 }
 
 struct fd_elem{
@@ -231,6 +232,7 @@ int open (const char *file) {
 	int handle = -1;
 	struct thread *current_thread = thread_current();
 	if(fd != NULL){
+		lock_acquire(&locker);
 		fd->file = filesys_open(file_to_open);
 		if(fd->file !=NULL){
 			current_thread->handle = current_thread->handle + 1;
@@ -241,6 +243,7 @@ int open (const char *file) {
 		else{
 			free(fd);
 		}
+		lock_release(&locker);
 	}		
 	palloc_free_page(file_to_open);
 	return handle;
@@ -309,8 +312,10 @@ unsigned tell (int fd) {
 void close (int fd) {
 	struct fd_elem  *file_to_close = find_file(fd);
 	if(file_to_close == NULL){return;}
+	lock_acquire(&locker);
 	file_close(file_to_close->file);
 	list_remove(&file_to_close->elem);
+	lock_release(&locker);
 	return;
 }
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
