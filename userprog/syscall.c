@@ -16,7 +16,23 @@
 #include "threads/vaddr.h"
 //#include "lib/stdbool.h"
 
+#include "devices/shutdown.h"
+#include <stdlib.h>
+//#include "lib/stdbool.h"
 
+static void halt (void);
+static void exit(int);
+static tid_t exec (const char *cmd_line);
+static int wait (tid_t pid);
+static bool create (const char *file, unsigned initial_size);
+static bool remove (const char *file);
+static int open (const char *file);
+static int filesize (int fd);
+static int read (int fd, void *buffer, unsigned size);
+static int write (int fd, const void *buffer, unsigned size);
+static void seek (int fd, unsigned position);
+static unsigned tell (int fd);
+static void close (int fd);
 void check_arg(struct intr_frame *f, int *args, int paremc);
 static bool is_user(const void* vaddr);
 static struct lock locker;
@@ -306,7 +322,7 @@ lines of text output by different processes may end up interleaved on the consol
 int write (int fd, const void *buffer, unsigned size) {
 	struct file *f;
 	int num_bytes_written = 0;
-
+	printf("in write\n");
 	if(fd != STDOUT_FILENO){f = find_file(fd);} 
 
 	lock_acquire(&locker);
@@ -327,11 +343,13 @@ int write (int fd, const void *buffer, unsigned size) {
 				return -1;
 			}
 			bytes = file_write(f, buffer, size);
+			printf("set up bytes\n");
 		}
 		num_bytes_written = num_bytes_written + bytes;
 		size = size - bytes;
 	}
 	lock_release (&locker);
+	printf("%d num byte \n",num_bytes_written);
 	return num_bytes_written;
 }
 
