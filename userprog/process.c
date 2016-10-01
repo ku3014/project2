@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -95,7 +96,9 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   while(1){
-		
+
+
+
 	}
 }
 
@@ -228,10 +231,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 
   //make a copy of file_name so i can change 
-  char* copy_fn;//[PGSIZE];
-  strlcpy(copy_fn,file_name,PGSIZE);
-  char* argv[PGSIZE];
-  
+ // char* copy_fn[25];
+	char** copy_fn = (char**)malloc(25*sizeof(char));  
+	strlcpy(copy_fn,file_name,PGSIZE);
+  //char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
   
   char *token;
   char *save_ptr;
@@ -333,24 +337,38 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
+	printf("made it up to right befor stack\n");
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-
+	printf("made it to set up stack!\n");
   int argc_count = argc;
-    uint32_t * argv_pointer[30];   
-  /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
+   // uint32_t * argv_pointer[25];   
+	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
+/*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
+
+	printf("esp - \n");
+//	*esp = *esp -1;
+	printf("tester\n");
+	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
+	printf("testerfinished\n");
 	int counter_letter =0;
  while(argc_count != 0)
   {
-   *esp = *esp - (strlen(argv[argc_count])+1)*sizeof(char); /* cmd put in from right to left ! so just use i instead of making new counter*/
-   argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
-   memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
-   counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
-   argc_count--;
+	printf("1\n");
+   *esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
+	 printf("2\n");  
+	argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
+printf("3\n");   
+	memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+   printf("4\n");
+	counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
+   printf("5\n");
+	argc_count--;
   }
+	printf("made it to pushing in string)\n");
 /*
 STACK top| return address = null
 			argc num command
@@ -403,7 +421,7 @@ free(fillarr);
     (*(int *)(*esp))=0;	/* return address =0 */
 
 
-
+printf("finished stack\n");
 
  /*pfree(argv_pointer);
   /* Start address. */

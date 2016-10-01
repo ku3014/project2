@@ -1,30 +1,39 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <list.h>
+#include <string.h>
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
-#include <list.h>
-#include "userprog/pagedir.h"
-#include "userprog/process.h"
 #include "threads/synch.h"
+#include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "threads/vaddr.h"
 //#include "lib/stdbool.h"
+
+
 void check_arg(struct intr_frame *f, int *args, int paremc);
 static bool is_user(const void* vaddr);
 static struct lock locker;
-static struct list file_list;
-static struct file* find_file(int fd);
-struct fd_elem {
-	struct file *file;
-	struct list_elem elem;
-	int fd;
-};
+static struct fd_elem* find_file(int number);
+static void syscall_handler (struct intr_frame *);
+char * string_to_page(const char * string);
+
 static bool is_user(const void* vaddr){
-	return vaddr < PHYS_BASE;
+	if(vaddr == NULL) {return false;}
+	return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL); 
 }
 
-static void syscall_handler (struct intr_frame *);
+struct fd_elem{
+	struct list_elem elem;
+	struct file *file;
+	int handle;
+};
 
 /*
 Implement enough code to read the system call number from the user stack and dispatch to a handler based on it.
@@ -35,7 +44,6 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init (&locker);
-  list_init (&file_list);
 }
 
 static void
@@ -164,7 +172,7 @@ void halt (void) {
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
 void exit (int status) {
   
-  
+  	thread_exit();
   
 }
 
@@ -222,24 +230,31 @@ Each process has an independent set of file descriptors. File descriptors are no
 When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. 
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
 int open (const char *file) {
-  struct file *f;
-  struct fd_elem *fde;
-  int ret = -1;
-  fde = (struct fd_elem*) malloc(sizeof (struct fd_elem));
-  if(!file){
-    return -1;
-  }
-  if(!is_user(file)){
-	return -1;
-  }
-  f= filesys_open(file);
-  if(!f){
-	return -1;
-  }
-  fde->fd = 3;
-  fde->file = f;
-  list_push_back(&file_list,&fde->elem);
-   return ret = fde->fd;
+
+	char* file_to_open = string_to_page(file);
+	if(file_to_open == NULL){exit(-1);}
+
+	struct fd_elem *fd;
+	fd = malloc (sizeof *fd);
+	
+	int handle = -1;
+	struct thread *current_thread = thread_current();
+	if(fd != NULL){
+		lock_acquire(&locker);
+		fd->file = filesys_open(file_to_open);
+		if(fd->file !=NULL){
+			current_thread->handle = current_thread->handle + 1;
+			handle = current_thread->handle;
+			fd->handle = current_thread->handle;
+			list_push_front(&current_thread->file_lists, &fd->elem);
+		}
+		else{
+			free(fd);
+		}
+		lock_release(&locker);
+	}		
+	palloc_free_page(file_to_open);
+	return handle;
 }
 
 /* Returns the size, in bytes, of the file open as fd. */
@@ -304,19 +319,44 @@ unsigned tell (int fd) {
 
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 void close (int fd) {
-
+	struct fd_elem  *file_to_close = find_file(fd);
+	if(file_to_close == NULL){return;}
+	lock_acquire(&locker);
+	file_close(file_to_close->file);
+	list_remove(&file_to_close->elem);
+	lock_release(&locker);
+	return;
 }
+/* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 
-static struct file* find_file(int fd){
-	struct fd_elem *ret;
-	struct list_elem *find;
 
-	for(find = list_begin(&file_list); find != list_end(&file_list); find = list_next(find)){
-		ret = list_entry (find, struct fd_elem, elem);
-		if(ret->fd == fd){
-			return ret->file;
+struct fd_elem * find_file (int number){
+	/* still to do:  get current file_list*/
+	struct thread *current_thread = thread_current();
+	struct list_elem *file_no;
+	for(file_no = list_begin(&current_thread->file_lists); file_no != list_end(&current_thread->file_lists); file_no = list_next(file_no)){
+		struct fd_elem *fl = list_entry(file_no, struct fd_elem, elem);
+		if(fl->handle == number){
+			return fl;
 		}
 	}
-	return NULL;
+	exit(-1);
+	return(NULL); /*file not found*/
+}
 
+char * string_to_page(const char *string){
+	char *page;
+	
+	page = palloc_get_page(0);
+	if (page == NULL){thread_exit();}
+	
+	for(int i = 0; i < PGSIZE; i++){
+		if(string >= (char *) PHYS_BASE){
+			palloc_free_page(page);
+			thread_exit();
+		}
+		if(page[i] == '\0') {return page;}
+	}
+	page[PGSIZE -1] = '\0';
+	return page;
 }

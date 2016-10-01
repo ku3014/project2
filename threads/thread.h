@@ -97,7 +97,9 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-
+	
+	struct list file_lists;
+	int handle;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
