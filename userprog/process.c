@@ -28,6 +28,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
+	printf("makes it to process_execute\n");
   char *fn_copy;
   tid_t tid;
 
@@ -40,13 +41,14 @@ process_execute (const char *file_name)
 	char *save_ptr;
 	strlcpy (fn_copy, file_name, PGSIZE);
   
-	fn_copy = strtok_r(fn_copy, " ", &save_ptr);
+	file_name = strtok_r(fn_copy, " ", &save_ptr);
 
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+	 
+	if (tid == TID_ERROR)
+    	palloc_free_page (fn_copy); 
   return tid;
 }
 
@@ -58,14 +60,13 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
+
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -93,7 +94,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  while(1){
+		
+	}
 }
 
 /* Free the current process's resources. */
@@ -213,7 +216,10 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
+  
+  printf("load made it\n");
   struct thread *t = thread_current ();
+  printf("is it this thread\n");
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
@@ -222,7 +228,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
 
   //make a copy of file_name so i can change 
-  char copy_fn[PGSIZE];
+  char* copy_fn;//[PGSIZE];
   strlcpy(copy_fn,file_name,PGSIZE);
   char* argv[PGSIZE];
   
@@ -332,7 +338,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 /*if no error set up stack*/
 
   int argc_count = argc;
-    uint32_t * argv_pointer[PGSIZE];   
+    uint32_t * argv_pointer[30];   
   /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/

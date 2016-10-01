@@ -41,9 +41,10 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  printf("syscall handler\n");
   int call = * (int *)f->esp;
   // Check for which call it is
-  
+  int args[3]; // 3 maxargs
   switch(call) {
     /* Halt the operating system. */
     case SYS_HALT:
@@ -61,6 +62,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Start another process. */
     case SYS_EXEC:                  
       {
+		check_arg(f, &args[0], 1);
+		f->eax = exec((const char*) args[0]);
         break;
       }
       
@@ -86,6 +89,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Open a file. */
     case SYS_OPEN:                  
       {
+		check_arg(f,&args[0],1);
+		f->eax = open((const char*) args[0]);
         break;
       }
       
@@ -104,6 +109,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Write to a file. */
     case SYS_WRITE:                 
       {
+		check_arg(f,&args[0],3);
+		f->eax = write(args[0],(const void*) args[1], (unsigned) args[2]);
         break;
       }
       
@@ -126,7 +133,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
   }
   
-  printf ("system call!\n");
   thread_exit ();
 }
 void check_arg(struct intr_frame *f, int *args, int paremc){
@@ -167,9 +173,10 @@ Must return pid -1, which otherwise should not be a valid pid, if the program ca
 from the exec until it knows whether the child process successfully loaded its executable. You must use appropriate synchronization to ensure this. */
 tid_t exec (const char *cmd_line) {
 
-  
+ tid_t tid;
+ tid=  process_execute(cmd_line);
 
-return -1;
+return tid;
 }
 
 /* 
@@ -230,6 +237,7 @@ int open (const char *file) {
 	return -1;
   }
   fde->fd = 3;
+  fde->file = f;
   list_push_back(&file_list,&fde->elem);
    return ret = fde->fd;
 }
@@ -254,6 +262,7 @@ at least as long as size is not bigger than a few hundred bytes. (It is reasonab
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
 	struct file *f;
+	printf("hello write");
 	int ret = -1;
 	lock_acquire(&locker);
 	if(fd == STDOUT_FILENO){
