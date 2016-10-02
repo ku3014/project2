@@ -29,11 +29,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-<<<<<<< HEAD
     printf("makes it to process_execute\n");
-=======
-	printf("makes it to process_execute\n");
->>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
   char *fn_copy;
   tid_t tid;
 
@@ -46,24 +42,14 @@ process_execute (const char *file_name)
     char *save_ptr;
     strlcpy (fn_copy, file_name, PGSIZE);
   
-<<<<<<< HEAD
     file_name = strtok_r(fn_copy, " ", &save_ptr);
-=======
-	file_name = strtok_r(fn_copy, " ", &save_ptr);
->>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
 
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-<<<<<<< HEAD
      
     if (tid == TID_ERROR)
-        palloc_free_page (fn_copy); 
-=======
-	 
-	if (tid == TID_ERROR)
-    	palloc_free_page (fn_copy); 
->>>>>>> 68277dba45e99ea5b950cdf12f33dd637715f14f
+        palloc_free_page (fn_copy);
   return tid;
 }
 
