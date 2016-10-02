@@ -29,7 +29,6 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-    printf("makes it to process_execute\n");
   char *fn_copy;
   tid_t tid;
 
@@ -47,7 +46,7 @@ process_execute (const char *file_name)
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-     
+
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy);
   return tid;
@@ -216,9 +215,7 @@ bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
   
-  printf("load made it\n");
   struct thread *t = thread_current ();
-  printf("is it this thread\n");
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
@@ -256,7 +253,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
 
@@ -269,7 +265,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
 
@@ -333,11 +328,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-	printf("made it up to right befor stack\n");
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-	printf("made it to set up stack!\n");
   int argc_count = argc;
    // uint32_t * argv_pointer[25];   
 	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
@@ -346,26 +339,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
 /*put int char for argv*/
 
 
-	printf("esp - \n");
-//	*esp = *esp -1;
-	printf("tester\n");
 	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
-	printf("testerfinished\n");
 	int counter_letter =0;
  while(argc_count != 0)
   {
-	printf("1\n");
+
    *esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
-	 printf("2\n");  
+	
 	argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
-printf("3\n");   
+
 	memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
-   printf("4\n");
+  
 	counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
-   printf("5\n");
+
 	argc_count--;
   }
-	printf("made it to pushing in string)\n");
+
 
 /*
 STACK top| return address = null
@@ -400,8 +389,8 @@ free(fillarr);
     *esp = *esp - filler;
      *esp = *esp - 4;
      (*(uint32_t *)(*esp)) = 0; /*  buffer 0 thing*/ 
-    *esp = *esp - 4;
-    (*(uint32_t **)(*esp)) = 0;
+  /*  *esp = *esp - 4;
+    (*(uint32_t **)(*esp)) = 0;*/
 
   argc_count = argc;
 
@@ -418,8 +407,6 @@ free(fillarr);
     *esp = *esp - 4;
     (*(int *)(*esp))=0;    /* return address =0 */
 
-
-printf("finished stack\n");
 
  /*pfree(argv_pointer);
   /* Start address. */

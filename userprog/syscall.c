@@ -19,6 +19,22 @@
 //#include "lib/stdbool.h"
 
 
+/*
+static void halt (void);
+static void exit(int);
+static tid_t exec (const char *cmd_line);
+static int wait (tid_t pid);
+static bool create (const char *file, unsigned initial_size);
+static bool remove (const char *file);
+static int open (const char *file);
+static int filesize (int fd);
+static int read (int fd, void *buffer, unsigned size);
+static int write (int fd, const void *buffer, unsigned size);
+static void seek (int fd, unsigned position);
+static unsigned tell (int fd);
+static void close (int fd);
+*/
+
 void check_arg(struct intr_frame *f, int *args, int paremc);
 static bool is_user(const void* vaddr);
 static struct lock locker;
@@ -60,30 +76,21 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init (&locker);
-	printf("DID THIS EVEN WORK\n");
 
 }
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-	printf("IT CALLS SYSCALL HANDLER\n");
-
   // int call = * (int *)f->esp;
   // Check for which call it is
-  int temp = (* (int *) f->esp);
-	printf("%d\n",temp);
-  switch(temp) {
-  printf("syscall handler\n");
   int call = * (int *)f->esp;
-  // Check for which call it is
   int args[3]; // 3 maxargs
   switch(call) {
     /* Halt the operating system. */
     case SYS_HALT:
       {
 	  	halt();
-	  	printf("CALLS SYSCALL INIT\n");
         break;
       }
       
@@ -170,26 +177,25 @@ syscall_handler (struct intr_frame *f UNUSED)
   thread_exit ();
 }
 void check_arg(struct intr_frame *f, int *args, int paremc){
-	int *ptr;
-	ptr = f->esp;
-	if(!is_user(ptr)){
+//	int ptr;
+//	ptr = * (int *) f->esp + 1;
+	if(!is_user(f->esp)){
 		exit(-1);
 	}
-	if(*ptr <SYS_HALT){
-		exit(-1);
-	}
+//	if(*ptr <SYS_HALT){
+//		exit(-1);
+//	}
 	for(int i =0; i < paremc ; i++){
-		if(!is_user(ptr+i+1)){
-			exit(-1);
-		}
-		args[i]=*ptr;
+	//	if(!is_user(*(int*)f->esp+i+1)){
+	//		exit(-1);
+	//	}
+		args[i]=*((int*) f->esp+1+i);
 	}
 }
 
 /* Terminates Pintos by calling power_off() (declared in threads/init.h). This should be seldom used, because you lose some information about
 possible deadlock situations, etc. */
 void halt (void) {
-	printf("WAT\n");
   shutdown_power_off();
 }
 
@@ -336,33 +342,46 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
+	
+
+	
 	struct file *f;
 	int num_bytes_written = 0;
 
-	if(fd != STDOUT_FILENO){f = find_file(fd);} 
+	if(fd != STDOUT_FILENO){
+		f = find_file(fd);
+	} 
 
 	lock_acquire(&locker);
 	while(size > 0){
 		int bytes;
 		if(fd == STDOUT_FILENO){
+
+			
 			putbuf(buffer, size);
 			bytes = size;
 		}else if(fd == STDIN_FILENO){
-			lock_release(&locker);		
+			
+		lock_release(&locker);		
 			return -1;
 		}else if(!is_user(buffer)||is_user(buffer + size)){
+
 			lock_release(&locker);
 			return -1;
 		}else{
+			
 			if(!f){
+	
 				lock_release(&locker);
 				return -1;
 			}
 			bytes = file_write(f, buffer, size);
 		}
+
 		num_bytes_written = num_bytes_written + bytes;
 		size = size - bytes;
 	}
+	
 	lock_release (&locker);
 	return num_bytes_written;
 }
