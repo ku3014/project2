@@ -29,7 +29,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-	printf("makes it to process_execute\n");
+    printf("makes it to process_execute\n");
   char *fn_copy;
   tid_t tid;
 
@@ -39,10 +39,9 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
 
-	char *save_ptr;
-	strlcpy (fn_copy, file_name, PGSIZE);
-  
-	file_name = strtok_r(fn_copy, " ", &save_ptr);
+    char *save_ptr;
+    strlcpy (fn_copy, file_name, PGSIZE);
+    file_name = strtok_r(fn_copy, " ", &save_ptr);
 
   
   /* Create a new thread to execute FILE_NAME. */
@@ -143,7 +142,7 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
-
+
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -247,8 +246,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
   {
     argv[argc] = token;
- 	/*counter ++;*/
-	argc++;
+     /*counter ++;*/
+    argc++;
   } /* now argc will have number of cmds and argv will have tokenized command*/
 
   /* Allocate and activate page directory. */
@@ -350,6 +349,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
 
+
 	printf("esp - \n");
 //	*esp = *esp -1;
 	printf("tester\n");
@@ -370,16 +370,17 @@ printf("3\n");
 	argc_count--;
   }
 	printf("made it to pushing in string)\n");
+
 /*
 STACK top| return address = null
-			argc num command
-			argv points right under
-			argv 0
-			argv 1
-			arg ... last = null
-			empty space
-	esp-4		char from right to left			
- 	 esp-> pysicalbase or something
+            argc num command
+            argv points right under
+            argv 0
+            argv 1
+            arg ... last = null
+            empty space
+    esp-4        char from right to left            
+      esp-> pysicalbase or something
 */
 int filler = counter_letter%4;
 
@@ -392,19 +393,19 @@ for(int c =0; c<filler; c++)
 }
  if(filler != 0)
   {
-	*esp = *esp - filler*sizeof(char);
-	memcpy(*esp,fillarr,filler);
+    *esp = *esp - filler*sizeof(char);
+    memcpy(*esp,fillarr,filler);
 
   }
 free(fillarr);
 
 */
 
-	*esp = *esp - filler;
+    *esp = *esp - filler;
      *esp = *esp - 4;
      (*(uint32_t *)(*esp)) = 0; /*  buffer 0 thing*/ 
     *esp = *esp - 4;
-	(*(uint32_t **)(*esp)) = 0;
+    (*(uint32_t **)(*esp)) = 0;
 
   argc_count = argc;
 
@@ -412,14 +413,14 @@ free(fillarr);
   {
     *esp = *esp - 4;/*32bit?*/
     (*(uint32_t **)(*esp)) = argv_pointer[argc_count];
-	argc_count--;
+    argc_count--;
    }
     *esp = *esp - 4;
     (*(uintptr_t  **)(*esp)) = (*esp+4); /* argv -> argv[0]*/
     *esp = *esp - 4;
     *(int *)(*esp) = argc;
     *esp = *esp - 4;
-    (*(int *)(*esp))=0;	/* return address =0 */
+    (*(int *)(*esp))=0;    /* return address =0 */
 
 
 printf("finished stack\n");
@@ -435,7 +436,7 @@ printf("finished stack\n");
   file_close (file);
   return success;
 }
-
+
 
 
 
