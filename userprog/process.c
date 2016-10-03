@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <list.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -23,14 +22,6 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-int process_status_init(void);
-void process_status_add_child(void);
-int process_status_wait_for_child_to_die(tid_t child_tid);
-void process_status_kill_self(struct status *ps, int child_or_parent);
-void process_status_kill_the_children(void);
-
-struct status *current_process_status;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -38,27 +29,27 @@ struct status *current_process_status;
 tid_t
 process_execute (const char *file_name) 
 {
-  	char *fn_copy;
-  	tid_t tid;
+
+  char *fn_copy;
+  tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  	
-	fn_copy = palloc_get_page (0);
-  	if (fn_copy == NULL){return TID_ERROR;}
-	char *save_ptr;
-	strlcpy (fn_copy, file_name, PGSIZE);
-  	file_name = strtok_r(fn_copy, " ", &save_ptr);
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    return TID_ERROR;
 
-  	/* Create a new thread to execute FILE_NAME. */
-  	
-	tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-    	
-	if (tid == TID_ERROR){palloc_free_page (fn_copy);}
-  	else{
-		process_status_add_child();
-	}
-	return tid;
+    char *save_ptr;
+    strlcpy (fn_copy, file_name, PGSIZE);
+  
+    file_name = strtok_r(fn_copy, " ", &save_ptr);
+
+  
+  /* Create a new thread to execute FILE_NAME. */
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+    if (tid == TID_ERROR)
+        palloc_free_page (fn_copy); 
+  return tid;
 }
 
 /* A thread function that loads a user process and starts it
@@ -66,34 +57,29 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  	char *file_name = file_name_;
-  	struct intr_frame if_;
-  	bool success;
-  
-	/* Initialize interrupt frame and load executable. */
-  	memset (&if_, 0, sizeof if_);
-  	if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
-  	if_.cs = SEL_UCSEG;
-  	if_.eflags = FLAG_IF | FLAG_MBS;
-  	success = load (file_name, &if_.eip, &if_.esp);
- 	
-	 /* If load failed, quit. */
-  	palloc_free_page (file_name);
-  	
-	if (!success) { thread_exit ();}
-  	else{
-		process_status_init();
-	}
+  char *file_name = file_name_;
+  struct intr_frame if_;
+  bool success;
+  /* Initialize interrupt frame and load executable. */
+  memset (&if_, 0, sizeof if_);
 
-	/* Start the user process by simulating a return from an
-    	interrupt, implemented by intr_exit (in
-     	threads/intr-stubs.S).  Because intr_exit takes all of its
-     	arguments on the stack in the form of a `struct intr_frame',
-     	we just point the stack pointer (%esp) to our stack frame
-     	and jump to it. */
-  
-	asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
-  	NOT_REACHED ();
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+  success = load (file_name, &if_.eip, &if_.esp);
+  /* If load failed, quit. */
+  palloc_free_page (file_name);
+  if (!success) 
+    thread_exit ();
+
+  /* Start the user process by simulating a return from an
+     interrupt, implemented by intr_exit (in
+     threads/intr-stubs.S).  Because intr_exit takes all of its
+     arguments on the stack in the form of a `struct intr_frame',
+     we just point the stack pointer (%esp) to our stack frame
+     and jump to it. */
+  asm volatile ("movl %0, %%esp; jmp intr_exit" : : "g" (&if_) : "memory");
+  NOT_REACHED ();
 }
 
 /* Waits for thread TID to die and returns its exit status.  If
@@ -105,68 +91,35 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-
-/* waits for a child process and retrieves the child's exit status.
-if pid is still alive waits until it terminates.
-then returns the status that pid passed to exit. (write this in exit)
-if pid did not call exit(), but was terminated by the kernel( e.g. killed due to an exception), then
-wait must return -1.
-it is perfectly legal for a parent process to wait for child processes that have already terminated...
-by the time the parent calls wait,
-but the kernel must still alow the parent to retrieve its child's exit status or learn that 
-the child was terminated by the kernel.
-wait must fail and return -q immediately if any of the following conditons*/
-
-/* return -1, pid does not refer to a direct child of the calling process.
-pid is a direct child of the calling process if and only if the calling process recieved pid
-as a return value from a succesful call to exec*/
-
-/* Note that children are not inherited: if A spawns child B and B spawns child process C,
-   then A cannot wait for C, even if B is dead. A call to wait(c) by process A must fail.
-   Similarly, orphaned process are not assigned to a new parent if their parent process exits before they do.*/
-
-/* return -1, if the process that calls wait has aready called wait on pid. That is, a process may wait for any
-   given child a most once. */
-
-/* processes may spawn any number of children, wait for them in any order, and may even exit without having
-   waited for some or all of their children. Your design should consider all the ways in which wait can occur.
-   All of a process's resources, includeing its struct thread, must be freed whether its parent ever waits for
-   it or not, and regardless of whether the child exits befor or after its parent.
-*/
-
-/* you must ensure that Pintos does not termnate until the initial process exits.*/
-
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-	return process_status_wait_for_child_to_die(child_tid);
+  while(1){}
 }
 
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
-  	struct thread *cur = thread_current ();
-  	uint32_t *pd;
-  	/* Destroy the current process's page directory and switch back
-     	to the kernel-only page directory. */
-  	pd = cur->pagedir;
-  	if (pd != NULL) 
-    	{
-        	/* Correct ordering here is crucial.  We must set
-        	cur->pagedir to NULL before switching page directories,
-        	so that a timer interrupt can't switch back to the
-        	process page directory.  We must activate the base page
-        	directory before destroying the process's page
-        	directory, or our active page directory will be one
-        	that's been freed (and cleared). */
-      		cur->pagedir = NULL;
-      		pagedir_activate (NULL);
-      		pagedir_destroy (pd);
-    	}
-	process_status_kill_self(cur->process_status, 1);
-	
-	process_status_kill_the_children();
+  struct thread *cur = thread_current ();
+  uint32_t *pd;
+
+  /* Destroy the current process's page directory and switch back
+     to the kernel-only page directory. */
+  pd = cur->pagedir;
+  if (pd != NULL) 
+    {
+      /* Correct ordering here is crucial.  We must set
+         cur->pagedir to NULL before switching page directories,
+         so that a timer interrupt can't switch back to the
+         process page directory.  We must activate the base page
+         directory before destroying the process's page
+         directory, or our active page directory will be one
+         that's been freed (and cleared). */
+      cur->pagedir = NULL;
+      pagedir_activate (NULL);
+      pagedir_destroy (pd);
+    }
 }
 
 /* Sets up the CPU for running user code in the current
@@ -270,6 +223,26 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int i;
 
 
+  //make a copy of file_name so i can change 
+ // char* copy_fn[25];
+	char** copy_fn = (char**)malloc(25*sizeof(char));  
+	strlcpy(copy_fn,file_name,PGSIZE);
+  //char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
+  
+  char *token;
+  char *save_ptr;
+  argv[0] = strtok_r(copy_fn, " ", &save_ptr);
+  int argc = 1; //firstcmd
+  
+  /*int counter = 0;*/
+  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
+  {
+    argv[argc] = token;
+     /*counter ++;*/
+    argc++;
+  } /* now argc will have number of cmds and argv will have tokenized command*/
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -358,47 +331,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-
-  //make a copy of file_name so i can change 
- // char* copy_fn[25];
-	 char** copy_fn = (char**)malloc(25*sizeof(char));  
-	strlcpy(copy_fn,file_name,PGSIZE);
-  //char* argv[128];
-  char** argv = (char**)malloc(128*sizeof(char));
-  
-  char *token;
-  char *save_ptr;
-  argv[0] = (char *)strtok_r(file_name, " ", &save_ptr);
-  int argc = 1; //firstcmd
-/*	
-	// We reached too far in our USER SPACE
-	if(copy_fn >= PHYS_BASE) {
-		printf("ERROR WHY DO BAD THINGS HAPPEN TO GOOD PPL\n");
-	}
-	if(argv >= PHYS_BASE) {
-		printf("ERROR WHY DO BAD THINGS HAPPEN TO GOOD PPL\n");
-	}
-  */
-	//hexdump
-	// hex-dump(
-	
-  /*int counter = 0;*/
-  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
-  {
-    argv[argc] = token;
-     /*counter ++;*/
-    argc++;
-  } /* now argc will have number of cmds and argv will have tokenized command*/
-	
-	
-	
-	int argc_count = argc;
+  int argc_count = argc;
    // uint32_t * argv_pointer[25];   
 	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
-/*uint32_t * argv_pointer[argc];*/
-/* this will point to the argument eg argv[0] --> ld\0*/
-/* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);*/
+/*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
+ /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
+
+
 	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
 	int counter_letter =0;
  while(argc_count != 0)
@@ -453,7 +393,7 @@ free(fillarr);
     (*(uint32_t **)(*esp)) = 0;*/
 
   argc_count = argc;
-	
+
    while( argc_count != 0)
   {
     *esp = *esp - 4;/*32bit?*/
@@ -468,16 +408,12 @@ free(fillarr);
     (*(int *)(*esp))=0;    /* return address =0 */
 
 
- /*pfree(argv_pointer);*/
+ /*pfree(argv_pointer);
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
 
-	free(argv);
-	free(copy_fn);
-	free(argv_pointer);
-	
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
@@ -635,58 +571,4 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
-}
-
-int process_status_init(void){
-	struct thread *cur = thread_current();
-	cur->process_status = malloc(sizeof *cur->process_status);
-	current_process_status = cur->process_status;
-	if(current_process_status == NULL){return -1;}
-	current_process_status->tid = cur->tid;
-	current_process_status->child = 1;
-	current_process_status->parent = 1;
-	current_process_status->exit_status = -1;
-	sema_init(&current_process_status->process_dead, 0);
-	return 1;
-}
-
-void process_status_add_child(void){
-	struct thread *cur = thread_current();
-	list_push_back(&cur->child_processes, &current_process_status->elem);
-}
-
-int process_status_wait_for_child_to_die(tid_t child_tid){
-	struct thread *cur = thread_current();
-	struct list_elem *i;
-	struct status *child_status;
-	for(i = list_begin(&(cur->child_processes)); i != list_end(&(cur->child_processes)); i = list_next(i)){
-		child_status = list_entry(i, struct status, elem);
-		if(child_status->tid == child_tid){
-			sema_down(&child_status->process_dead);
-			int exit_status = child_status->exit_status;
-			list_remove(i);
-			return exit_status;	
-		}
-	}
-	return -1;
-}
-
-void process_status_kill_self(struct status *ps, int child_or_parent){
-	if(child_or_parent == 1){ps->parent = ps->parent -1;}
-	else if(child_or_parent == 2){ps->child = ps->child -1;}
-	sema_up(&ps->process_dead);
-	if(ps->child + ps->parent <= 0){free(ps);}
-	
-}
-
-void process_status_kill_the_children(void){
-	struct thread *cur = thread_current();
-	struct list_elem *i;
-	struct list_elem *next_child = list_begin(&(cur->child_processes));
-	struct status *child_status;
-	for(i = list_begin(&(cur->child_processes)); i != list_end(&(cur->child_processes)); i = next_child){
-		child_status = list_entry(i, struct status, elem);
-		next_child = list_remove(i);
-		process_status_kill_self(child_status, 2);
-	}
 }
