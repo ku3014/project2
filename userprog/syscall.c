@@ -307,6 +307,7 @@ not be read (due to a condition other than end of file). Fd 0 reads from the key
 int read (int fd, void *buffer, unsigned size) {
 	struct fd_elem *f = NULL;
 	int num_bytes_read = 0;
+	uint8_t  *buffer_byte = buffer;
 	
 	if(fd != STDIN_FILENO){f = find_file(fd);if(f == NULL){return -1;}} /*if not standard lookup file */
 	
@@ -315,11 +316,11 @@ int read (int fd, void *buffer, unsigned size) {
 	while(size > 0){
 		int bytes;
 		if(fd == STDIN_FILENO){
-			strlcat(buffer, input_getc(), 1);
+			strlcat(buffer_byte, input_getc(), 1);
 			bytes = 1;
 		}
 		else{
-			bytes = file_read(f->file, buffer, size);
+			bytes = file_read(f->file, buffer_byte, size);
 		}
 		if(bytes < 0){
 			if(num_bytes_read == 0){num_bytes_read = -1;}
@@ -340,10 +341,9 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-		
+	uint8_t *buffer_byte = buffer;		
 	struct file *f;
 	int num_bytes_written = 0;
-
 	if(fd != STDOUT_FILENO){
 		f = find_file(fd);
 	} 
@@ -352,32 +352,25 @@ int write (int fd, const void *buffer, unsigned size) {
 	while(size > 0){
 		int bytes;
 		if(fd == STDOUT_FILENO){
-
-			
-			putbuf(buffer, size);
+			putbuf(buffer_byte, size);
 			bytes = size;
 		}else if(fd == STDIN_FILENO){
-			
-		lock_release(&locker);		
+			lock_release(&locker);		
 			return -1;
 		}else if(!is_user(buffer)||is_user(buffer + size)){
-
 			lock_release(&locker);
 			return -1;
 		}else{
 			
 			if(!f){
-	
 				lock_release(&locker);
 				return -1;
 			}
-			bytes = file_write(f, buffer, size);
+			bytes = file_write(f, buffer_byte, size);
 		}
-
 		num_bytes_written = num_bytes_written + bytes;
 		size = size - bytes;
 	}
-	
 	lock_release (&locker);
 	return num_bytes_written;
 }
