@@ -111,6 +111,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Wait for a child process to die. */
     case SYS_WAIT:                  
       {
+	check_arg(f,&args[0], 1);
+	f->eax = wait((tid_t) args[0]);
         break;
       }
       
@@ -204,12 +206,8 @@ Conventionally, a status of 0 indicates success and nonzero values indicate erro
 void exit (int status) {
 	
 	// Retrieve current process
-	struct thread *temp = thread_current();
-	/* if(thread_alive(temp->parent)) {
-		temp->cp->status = status;
-	}
-	printf("%s: exit(%d)\n", temp->name, status);
-	*/
+	struct thread *cur = thread_current();
+	cur->process_status->exit_status = status;
   	thread_exit();
   
 }
@@ -244,7 +242,7 @@ Consider all the ways a wait can occur: nested waits (A waits for B, then B wait
 Implementing this system call requires considerably more work than any of the rest.
 */
 int wait (tid_t pid) {
-  while(1);
+  return process_wait(pid);
 }
 
 /* Creates a new file called file initially initial_size bytes in size. Returns true if successful, false otherwise. Creating a new file 
@@ -342,9 +340,7 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-	
-
-	
+		
 	struct file *f;
 	int num_bytes_written = 0;
 
