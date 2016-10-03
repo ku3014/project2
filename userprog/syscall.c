@@ -96,6 +96,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Terminate this process. */
     case SYS_EXIT:                  
       {
+	  check_arg(f, &args[0], 1);
+	  	exit(args[0]);
         break;
       }
       
@@ -173,7 +175,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
   }
   
-  thread_exit ();
 }
 void check_arg(struct intr_frame *f, int *args, int paremc){
 //	int ptr;
@@ -202,15 +203,7 @@ void halt (void) {
 Conventionally, a status of 0 indicates success and nonzero values indicate errors. */
 void exit (int status) {
 	
-	// Retrieve current process
-	struct thread *temp = thread_current();
-	/* if(thread_alive(temp->parent)) {
-		temp->cp->status = status;
-	}
-	printf("%s: exit(%d)\n", temp->name, status);
-	*/
   	thread_exit();
-  
 }
 
 /* Runs the executable whose name is given in cmd_line, passing any given arguments, and returns the new process's program id (pid). 

@@ -223,26 +223,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int i;
 
 
-  //make a copy of file_name so i can change 
- // char* copy_fn[25];
-	char** copy_fn = (char**)malloc(25*sizeof(char));  
-	strlcpy(copy_fn,file_name,PGSIZE);
-  //char* argv[128];
-  char** argv = (char**)malloc(128*sizeof(char));
-  
-  char *token;
-  char *save_ptr;
-  argv[0] = strtok_r(copy_fn, " ", &save_ptr);
-  int argc = 1; //firstcmd
-  
-  /*int counter = 0;*/
-  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
-  {
-    argv[argc] = token;
-     /*counter ++;*/
-    argc++;
-  } /* now argc will have number of cmds and argv will have tokenized command*/
-
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -331,14 +311,46 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 /*if no error set up stack*/
-  int argc_count = argc;
+
+  //make a copy of file_name so i can change 
+ // char* copy_fn[25];
+	 char** copy_fn = (char**)malloc(25*sizeof(char));  
+	strlcpy(copy_fn,file_name,PGSIZE);
+  //char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
+  
+  char *token;
+  char *save_ptr;
+  argv[0] = (char *)strtok_r(file_name, " ", &save_ptr);
+  int argc = 1; //firstcmd
+/*	
+	// We reached too far in our USER SPACE
+	if(copy_fn >= PHYS_BASE) {
+		printf("ERROR WHY DO BAD THINGS HAPPEN TO GOOD PPL\n");
+	}
+	if(argv >= PHYS_BASE) {
+		printf("ERROR WHY DO BAD THINGS HAPPEN TO GOOD PPL\n");
+	}
+  */
+	//hexdump
+	// hex-dump(
+	
+  /*int counter = 0;*/
+  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
+  {
+    argv[argc] = token;
+     /*counter ++;*/
+    argc++;
+  } /* now argc will have number of cmds and argv will have tokenized command*/
+	
+	
+	
+	int argc_count = argc;
    // uint32_t * argv_pointer[25];   
 	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
 /*uint32_t * argv_pointer[argc]; /* this will point to the argument eg argv[0] --> ld\0*/
  /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);
 /*put int char for argv*/
-
-
 	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
 	int counter_letter =0;
  while(argc_count != 0)
@@ -393,7 +405,7 @@ free(fillarr);
     (*(uint32_t **)(*esp)) = 0;*/
 
   argc_count = argc;
-
+	
    while( argc_count != 0)
   {
     *esp = *esp - 4;/*32bit?*/
@@ -414,6 +426,10 @@ free(fillarr);
 
   success = true;
 
+	free(argv);
+	free(copy_fn);
+	free(argv_pointer);
+	
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
