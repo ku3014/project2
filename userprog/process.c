@@ -273,26 +273,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int i;
 
 
-  //make a copy of file_name so i can change 
- // char* copy_fn[25];
-	char** copy_fn = (char**)malloc(25*sizeof(char));  
-	strlcpy(copy_fn,file_name,PGSIZE);
-  //char* argv[128];
-  char** argv = (char**)malloc(128*sizeof(char));
-  
-  char *token;
-  char *save_ptr;
-  argv[0] = strtok_r(copy_fn, " ", &save_ptr);
-  int argc = 1; //firstcmd
-  
-  /*int counter = 0;*/
-  while((token = strtok_r('\0', " ", &save_ptr))!=NULL)
-  {
-    argv[argc] = token;
-     /*counter ++;*/
-    argc++;
-  } /* now argc will have number of cmds and argv will have tokenized command*/
-  
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -377,11 +357,45 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+	
+	
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+	
+//make a copy of file_name so i can change 
+ // char* copy_fn[25];
+	char* copy_fn;  
+	copy_fn = palloc_get_page (0);
+  	if (copy_fn == NULL){return TID_ERROR;}
+	strlcpy(copy_fn,file_name,PGSIZE);
+	
+	//char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
+  
+	// init to null
+	for(int i = 1; i < (128*sizeof(char))-1; i++) {
+		argv[i] = NULL;
+	}
+	
+  char *token;
+  char *save_ptr;
+  argv[0] = strtok_r(copy_fn, " ", &save_ptr);
+  int argc = 1; //firstcmd
+  
+  /*int counter = 0;*/
+  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
+  {
+    argv[argc] = token;
+     /*counter ++;*/
+    argc++;
+  } /* now argc will have number of cmds and argv will have tokenized command*/
+	
 /*if no error set up stack*/
   int argc_count = argc;
+	
+	
+	
    // uint32_t * argv_pointer[25];   
 	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
 /*uint32_t * argv_pointer[argc];*/
