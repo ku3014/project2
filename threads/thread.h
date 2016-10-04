@@ -1,9 +1,11 @@
+
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -25,13 +27,11 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 /* A kernel thread or user process.
-
    Each thread structure is stored in its own 4 kB page.  The
    thread structure itself sits at the very bottom of the page
    (at offset 0).  The rest of the page is reserved for the
    thread's kernel stack, which grows downward from the top of
    the page (at offset 4 kB).  Here's an illustration:
-
         4 kB +---------------------------------+
              |          kernel stack           |
              |                |                |
@@ -53,22 +53,18 @@ typedef int tid_t;
              |               name              |
              |              status             |
         0 kB +---------------------------------+
-
    The upshot of this is twofold:
-
       1. First, `struct thread' must not be allowed to grow too
          big.  If it does, then there will not be enough room for
          the kernel stack.  Our base `struct thread' is only a
          few bytes in size.  It probably should stay well under 1
          kB.
-
       2. Second, kernel stacks must not be allowed to grow too
          large.  If a stack overflows, it will corrupt the thread
          state.  Thus, kernel functions should not allocate large
          structures or arrays as non-static local variables.  Use
          dynamic allocation with malloc() or palloc_get_page()
          instead.
-
    The first symptom of either of these problems will probably be
    an assertion failure in thread_current(), which checks that
    the `magic' member of the running thread's `struct thread' is
@@ -97,11 +93,17 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-	
-	struct list file_lists;
-	int handle;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+/* LIST OF FILES: shows all the files a thread is using or could handle is set to 2+*/
+	struct list file_lists;
+	int handle;
+
+
+/* LIST OF CHILDPROCESSES OF THREAD*/
+	struct list child_processes;
+	struct status *process_status;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -140,4 +142,12 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+struct status {
+	tid_t tid;
+	struct semaphore process_dead;
+	int child;
+	int parent;
+	struct list_elem elem;
+	int exit_status;
+};
 #endif /* threads/thread.h */
