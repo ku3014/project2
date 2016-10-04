@@ -227,6 +227,9 @@ void exit (int status) {
 	// Retrieve current process
 	struct thread *cur = thread_current();
 	cur->process_status->exit_status = status;
+	
+	// Error message at 
+	printf("%s: exit(%d)\n", cur->name, status);
   	thread_exit();
   
 }
