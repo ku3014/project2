@@ -286,7 +286,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int argc = 1; //firstcmd
   
   /*int counter = 0;*/
-  while((token = strtok_r(NULL, " ", &save_ptr))!=NULL)
+  while((token = strtok_r('\0', " ", &save_ptr))!=NULL)
   {
     argv[argc] = token;
      /*counter ++;*/

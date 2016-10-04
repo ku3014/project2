@@ -86,6 +86,10 @@ syscall_handler (struct intr_frame *f UNUSED)
   // Check for which call it is
   int call = * (int *)f->esp;
   int args[3]; // 3 maxargs
+	
+	// Retreive Arguments
+	
+	
   switch(call) {
     /* Halt the operating system. */
     case SYS_HALT:
@@ -97,6 +101,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Terminate this process. */
     case SYS_EXIT:                  
       {
+	  	check_arg(f, &args[0], 1);
+	  	exit((int)args[0]);
         break;
       }
       
@@ -104,7 +110,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:                  
       {
 		check_arg(f, &args[0], 1);
-		f->eax = exec((const char*) args[0]);
+		f->eax = exec((const char*)args[0]);
         break;
       }
       
@@ -112,20 +118,23 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WAIT:                  
       {
 	check_arg(f,&args[0], 1);
-	f->eax = wait((tid_t) args[0]);
+	f->eax = wait((tid_t)args[0]);
         break;
       }
       
     /* Create a file. */
     case SYS_CREATE:               
       {
-		
+		check_arg(f, &args[0],2);
+	  	f->eax = create((const char *)args[0], (unsigned)args[1]);
         break;
       }
       
     /* Delete a file. */
     case SYS_REMOVE:               
       {
+	  	check_arg(f, &args[0], 1);
+		f->eax = remove((const char *)args[0]);
         break;
       }
       
@@ -133,19 +142,23 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_OPEN:                  
       {
 		check_arg(f,&args[0],1);
-		f->eax = open((const char*) args[0]);
+		f->eax = open((const char *)args[0]);
         break;
       }
       
     /* Obtain a file's size. */
     case SYS_FILESIZE:              
       {
+	  	check_arg(f,&args[0], 1);
+	  	f->eax = filesize((int)args[0]);
         break;
       }
       
     /* Read from a file. */
     case SYS_READ:                  
       {
+	  	check_arg(f, &args[0], 3);
+	  	f->eax = read((int) args[0], (void *)args[1], (unsigned) args[2]);
         break;
       }
       
@@ -153,30 +166,36 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:                 
       {
 		check_arg(f,&args[0],3);
-		f->eax = write(args[0],(const void*) args[1], (unsigned) args[2]);
+		f->eax = write((int)args[0],(void *)args[1], (unsigned) args[2]);
         break;
       }
       
     /* Change position in a file. */
     case SYS_SEEK:                  
       {
+	  	check_arg(f,&args[0], 2);
+	  	seek((int) args[0], (unsigned)args[1]);
         break;
       }
       
     /* Report current position in a file. */
     case SYS_TELL: 
       {
+	  	check_arg(f,&args[0],1);
+	    f->eax = tell((int)args[0]);
         break;
       }
       
     /* Close a file. */
     case SYS_CLOSE:
       {
+	  	check_arg(f,&args[0], 1);
+	  	close((int)args[0]);
         break;
       }
   }
   
-  thread_exit ();
+  // thread_exit ();
 }
 void check_arg(struct intr_frame *f, int *args, int paremc){
 //	int ptr;
