@@ -18,6 +18,7 @@
 #include <stdlib.h>
 //#include "lib/stdbool.h"
 
+
 /*
 static void halt (void);
 static void exit(int);
@@ -110,6 +111,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     /* Wait for a child process to die. */
     case SYS_WAIT:                  
       {
+	check_arg(f,&args[0], 1);
+	f->eax = wait((tid_t) args[0]);
         break;
       }
       
@@ -203,12 +206,8 @@ Conventionally, a status of 0 indicates success and nonzero values indicate erro
 void exit (int status) {
 	
 	// Retrieve current process
-	struct thread *temp = thread_current();
-	/* if(thread_alive(temp->parent)) {
-		temp->cp->status = status;
-	}
-	printf("%s: exit(%d)\n", temp->name, status);
-	*/
+	struct thread *cur = thread_current();
+	cur->process_status->exit_status = status;
   	thread_exit();
   
 }
@@ -232,18 +231,14 @@ You must ensure that Pintos does not terminate until the initial process exits. 
 process_wait() (in userprog/process.c) 
 from main() (in threads/init.c). We suggest that you implement process_wait() according to the comment at the top of the function and then 
 implement the wait system call in terms of process_wait().
-
 All of a process's resources, including its struct thread, must be freed whether its parent ever waits for it or not, and regardless of whether the 
 child exits before or after its parent.
-
 Children are not inherited: if A has child B and B has child C, then wait(C) always returns immediately when called from A, even if B is dead.
-
 Consider all the ways a wait can occur: nested waits (A waits for B, then B waits for C), multiple waits (A waits for B, then A waits for C), and so on.
-
 Implementing this system call requires considerably more work than any of the rest.
 */
 int wait (tid_t pid) {
-  while(1);
+  return process_wait(pid);
 }
 
 /* Creates a new file called file initially initial_size bytes in size. Returns true if successful, false otherwise. Creating a new file 
@@ -261,9 +256,7 @@ bool remove (const char *file) {
 /* Opens the file called file. Returns a nonnegative integer handle called a "file descriptor" (fd), or -1 if the file could not be opened.
 File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. 
 The open system call will never return either of these file descriptors, which are valid as system call arguments only as explicitly described below.
-
 Each process has an independent set of file descriptors. File descriptors are not inherited by child processes.
-
 When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. 
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
 int open (const char *file) {
@@ -308,6 +301,7 @@ not be read (due to a condition other than end of file). Fd 0 reads from the key
 int read (int fd, void *buffer, unsigned size) {
 	struct fd_elem *f = NULL;
 	int num_bytes_read = 0;
+	uint8_t  *buffer_byte = buffer;
 	
 	if(fd != STDIN_FILENO){f = find_file(fd);if(f == NULL){return -1;}} /*if not standard lookup file */
 	
@@ -316,11 +310,11 @@ int read (int fd, void *buffer, unsigned size) {
 	while(size > 0){
 		int bytes;
 		if(fd == STDIN_FILENO){
-			strlcat(buffer, input_getc(), 1);
+			strlcat(buffer_byte, input_getc(), 1);
 			bytes = 1;
 		}
 		else{
-			bytes = file_read(f->file, buffer, size);
+			bytes = file_read(f->file, buffer_byte, size);
 		}
 		if(bytes < 0){
 			if(num_bytes_read == 0){num_bytes_read = -1;}
@@ -341,12 +335,9 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-	
-
-	
+	uint8_t *buffer_byte = buffer;		
 	struct file *f;
 	int num_bytes_written = 0;
-
 	if(fd != STDOUT_FILENO){
 		f = find_file(fd);
 	} 
@@ -355,32 +346,25 @@ int write (int fd, const void *buffer, unsigned size) {
 	while(size > 0){
 		int bytes;
 		if(fd == STDOUT_FILENO){
-
-			
-			putbuf(buffer, size);
+			putbuf(buffer_byte, size);
 			bytes = size;
 		}else if(fd == STDIN_FILENO){
-			
-		lock_release(&locker);		
+			lock_release(&locker);		
 			return -1;
 		}else if(!is_user(buffer)||is_user(buffer + size)){
-
 			lock_release(&locker);
 			return -1;
 		}else{
 			
 			if(!f){
-	
 				lock_release(&locker);
 				return -1;
 			}
-			bytes = file_write(f, buffer, size);
+			bytes = file_write(f, buffer_byte, size);
 		}
-
 		num_bytes_written = num_bytes_written + bytes;
 		size = size - bytes;
 	}
-	
 	lock_release (&locker);
 	return num_bytes_written;
 }
