@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include <list.h>
@@ -193,6 +194,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	  	close((int)args[0]);
         break;
       }
+	default:
+	{
+  			exit(-1);
+  			}
   }
   
   // thread_exit ();
@@ -200,16 +205,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 void check_arg(struct intr_frame *f, int *args, int paremc){
 //	int ptr;
 //	ptr = * (int *) f->esp + 1;
-	if(!is_user(f->esp)){
+	int count = paremc;
+	while(count > -1){
+		if(!is_user(f->esp+count)){
 		exit(-1);
+		}
+		count --;
 	}
 //	if(*ptr <SYS_HALT){
 //		exit(-1);
 //	}
 	for(int i =0; i < paremc ; i++){
-	//	if(!is_user(*(int*)f->esp+i+1)){
-	//		exit(-1);
-	//	}
+//		if(!is_user(*(int*)f->esp+i+1)){
+//		exit(-1);
+//		}
 		args[i]=*((int*) f->esp+1+i);
 	}
 }
@@ -225,6 +234,9 @@ Conventionally, a status of 0 indicates success and nonzero values indicate erro
 void exit (int status) {
 	
 	// Retrieve current process
+	if (status < 0){
+		status = -1;	
+	}
 	struct thread *cur = thread_current();
 	cur->process_status->exit_status = status;
 	
@@ -238,9 +250,10 @@ void exit (int status) {
 Must return pid -1, which otherwise should not be a valid pid, if the program cannot load or run for any reason. Thus, the parent process cannot return 
 from the exec until it knows whether the child process successfully loaded its executable. You must use appropriate synchronization to ensure this. */
 tid_t exec (const char *cmd_line) {
-
+if(cmd_line == NULL){exit(-1);}
+if(!is_user(cmd_line)){exit(-1);}
  tid_t tid;
- tid=  process_execute(cmd_line);
+ tid = process_execute(cmd_line);
 
 return tid;
 }
@@ -260,18 +273,26 @@ Consider all the ways a wait can occur: nested waits (A waits for B, then B wait
 Implementing this system call requires considerably more work than any of the rest.
 */
 int wait (tid_t pid) {
+	if(pid == NULL){exit(-1);}
   return process_wait(pid);
 }
 
 /* Creates a new file called file initially initial_size bytes in size. Returns true if successful, false otherwise. Creating a new file 
 does not open it: opening the new file is a separate operation which would require a open system call. */
 bool create (const char *file, unsigned initial_size) {
+	if(file == NULL){exit(-1);}
+	if(!is_user(file)){exit(-1);}
+	
+	
+	
   return filesys_create(file, initial_size);
 }
 
 /* Deletes the file called file. Returns true if successful, false otherwise. A file may be removed regardless of whether it is open or closed, 
 and removing an open file does not close it. See Removing an Open File, for details. */
 bool remove (const char *file) {
+	if(file == NULL){exit(-1);}
+	if(!is_user(file)){exit(-1);}
   return filesys_remove(file);
 }
 
@@ -282,13 +303,15 @@ Each process has an independent set of file descriptors. File descriptors are no
 When a single file is opened more than once, whether by a single process or different processes, each open returns a new file descriptor. 
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
 int open (const char *file) {
+	
 
+	if(file == NULL){exit(-1);}
+if(!is_user(file)){exit(-1);}
 	char* file_to_open = string_to_page(file);
-	if(file_to_open == NULL){exit(-1);}
-
+	if(file_to_open == NULL){exit(-1);}	
 	struct fd_elem *fd;
 	fd = malloc (sizeof *fd);
-	
+	if(fd == NULL){exit(-1);}
 	int handle = -1;
 	struct thread *current_thread = thread_current();
 	if(fd != NULL){
@@ -296,8 +319,8 @@ int open (const char *file) {
 		fd->file = filesys_open(file_to_open);
 		if(fd->file !=NULL){
 			current_thread->handle = current_thread->handle + 1;
-			handle = current_thread->handle;
 			fd->handle = current_thread->handle;
+			handle = fd->handle;
 			list_push_front(&current_thread->file_lists, &fd->elem);
 		}
 		else{
@@ -312,6 +335,7 @@ int open (const char *file) {
 /* Returns the size, in bytes, of the file open as fd. */
 int filesize (int fd) {
 	struct fd_elem * f = find_file(fd);
+	if(f == NULL){exit(-1);}
 	lock_acquire(&locker);
 	int file_size = file_length(f->file);
 	lock_release(&locker);
@@ -323,9 +347,10 @@ not be read (due to a condition other than end of file). Fd 0 reads from the key
 int read (int fd, void *buffer, unsigned size) {
 	struct fd_elem *f = NULL;
 	int num_bytes_read = 0;
-	uint8_t  *buffer_byte = buffer;
-	
-	if(fd != STDIN_FILENO){f = find_file(fd);if(f == NULL){return -1;}} /*if not standard lookup file */
+	const char * buffer_byte = buffer;
+	if(buffer_byte == NULL){exit(-1);}
+	if(!is_user(buffer_byte)){exit(-1);}
+	if(fd != STDIN_FILENO){f = find_file(fd);if(f == NULL){exit(-1);}} /*if not standard lookup file */
 	
 	lock_acquire(&locker);
 	
@@ -357,11 +382,14 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise, 
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-	uint8_t *buffer_byte = buffer;		
+	const char *buffer_byte = buffer;		
+	if (buffer_byte == NULL){exit(-1);}
+	if(!is_user(buffer_byte)){exit(-1);}
 	struct file *f;
 	int num_bytes_written = 0;
 	if(fd != STDOUT_FILENO){
 		f = find_file(fd);
+		if(f == NULL){exit(-1);}
 	} 
 
 	lock_acquire(&locker);
@@ -397,22 +425,23 @@ A later write extends the file, filling any unwritten gap with zeros. (However, 
 so writes past end of file will return an error.) These semantics are implemented in the file system and do not require any special effort in system call implementation. */
 void seek (int fd, unsigned position) {
 	struct fd_elem *f = find_file(fd);
-	if(f == NULL){thread_exit();}
+	if(f == NULL){exit(-1);}
 	file_seek(f->file, position);
 }
 
 /* Returns the position of the next byte to be read or written in open file fd, expressed in bytes from the beginning of the file. */
 unsigned tell (int fd) {
 	struct fd_elem *f = find_file(fd);
-	if(f == NULL){thread_exit();}
+	if(f == NULL){exit(-1);}
 	return file_tell(f->file);
 }
 
 /* Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file descriptors, as if by calling this function for each one. */
 void close (int fd) {
 	struct fd_elem  *file_to_close = find_file(fd);
-	if(file_to_close == NULL){return;}
+	if(file_to_close == NULL){exit(-1);}
 	lock_acquire(&locker);
+	if(file_to_close->file == NULL){return;}
 	file_close(file_to_close->file);
 	list_remove(&file_to_close->elem);
 	lock_release(&locker);
@@ -439,7 +468,8 @@ char * string_to_page(const char *string){
 	char *page;
 	
 	page = palloc_get_page(0);
-	if (page == NULL){thread_exit();}
+	if (page == NULL){exit(-1);}
+	if(string == NULL){exit(-1);}
 	
 	for(int i = 0; i < PGSIZE; i++){
 		if(string >= (char *) PHYS_BASE){
