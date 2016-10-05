@@ -51,7 +51,8 @@ process_execute (const char *file_name)
   	if (fn_copy == NULL){return TID_ERROR;}
 	char *save_ptr;
 	strlcpy (fn_copy, file_name, PGSIZE);
-  	file_name = strtok_r(fn_copy, " ", &save_ptr);
+	
+  	file_name = strtok_r(file_name, " ", &save_ptr);
 
   	/* Create a new thread to execute FILE_NAME. */
   	
@@ -271,6 +272,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+	char* copy_fn;
+	copy_fn = palloc_get_page (0);
+  	if (copy_fn == NULL){return TID_ERROR;}
+	char *save_ptr;
+	strlcpy (copy_fn, file_name, PGSIZE);
+	
+  	file_name = strtok_r(file_name, " ", &save_ptr);
 
 
   /* Allocate and activate page directory. */
@@ -286,6 +294,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+	file_deny_write(file);
+	
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -365,16 +375,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
 	
 //make a copy of file_name so i can change 
  // char* copy_fn[25];
-	char* copy_fn;  
-	copy_fn = palloc_get_page (0);
-  	if (copy_fn == NULL){return TID_ERROR;}
-	strlcpy(copy_fn,file_name,PGSIZE);
 	
 	//char* argv[128];
-  char** argv = (char**)malloc(128*sizeof(char));
+  char* argv[24]; // = (char**)malloc(128*sizeof(char));
   
+	// init to null
+	/*
+	for(int i = 1; i < 127; i++) {
+		argv[i] = NULL;
+	}
+	*/
+	
   char *token;
-  char *save_ptr;
+ // char *save_ptr;
   argv[0] = strtok_r(copy_fn, " ", &save_ptr);
   int argc = 1; //firstcmd
   
@@ -386,6 +399,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     argc++;
   } /* now argc will have number of cmds and argv will have tokenized command*/
 	
+	argv[argc]= NULL;
 /*if no error set up stack*/
   int argc_count = argc;
 	
@@ -398,22 +412,42 @@ load (const char *file_name, void (**eip) (void), void **esp)
 /* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);*/
 /*put int char for argv*/
 
-
-	int tester = (strlen(argv[argc_count])+1)*sizeof(char);
-	int counter_letter =0;
- while(argc_count != 0)
-  {
-
-   *esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
+int tester = 0;
 	
-	argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
+	/*(if(argv[argc_count] != NULL)
+		tester = (strlen(argv[argc_count])+1)*sizeof(char);
+	*/
+	int counter_letter =0;
+ while(argc_count > -1)
+  {
+	
+	if(argv[argc_count] != NULL)
+	{
+		tester = (strlen(argv[argc_count])+1);
+		*esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
+	
+		argv_pointer[argc_count] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
 
-	memcpy(*esp,argv[argc_count],strlen(argv[argc_count])+1);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+		memcpy(*esp,argv[argc_count],tester);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
   
-	counter_letter = counter_letter + strlen(argv[argc_count])+1;	/*so shouldn't metter to much check here later if i get errors*/
+		counter_letter = counter_letter + tester;	/*so shouldn't metter to much check here later if i get errors*/
 
+	}
+	else{ tester = 0;}
+   
 	argc_count--;
   }
+
+	// char* teststring = malloc(sizeof(char)*10);
+	// tester = (strlen(argv[0])+1);
+	
+	//*esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
+	
+	// argv_pointer[0] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
+
+	//memcpy(*esp,argv[0],tester);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
+    //memcpy(teststring,argv[0],tester);
+	//counter_letter = counter_letter + tester;	/*so shouldn't metter to much check here later if i get errors*/
 
 
 /*
@@ -455,9 +489,10 @@ free(fillarr);
    while( argc_count != 0)
   {
     *esp = *esp - 4;/*32bit?*/
-    (*(uint32_t **)(*esp)) = argv_pointer[argc_count];
+    (*(uint32_t **)(*esp)) = argv_pointer[argc_count-1];
     argc_count--;
    }
+	
     *esp = *esp - 4;
     (*(uintptr_t  **)(*esp)) = (*esp+4); /* argv -> argv[0]*/
     *esp = *esp - 4;
@@ -600,7 +635,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE-1;
+        *esp = PHYS_BASE-4;
       else
         palloc_free_page (kpage);
     }
