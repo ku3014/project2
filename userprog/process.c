@@ -375,6 +375,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 	
 //make a copy of file_name so i can change 
  // char* copy_fn[25];
+<<<<<<< HEAD
 	
 	//char* argv[128];
   char* argv[24]; // = (char**)malloc(128*sizeof(char));
@@ -388,6 +389,23 @@ load (const char *file_name, void (**eip) (void), void **esp)
 	
   char *token;
  // char *save_ptr;
+=======
+	char* copy_fn;  
+	copy_fn = palloc_get_page (0);
+  	if (copy_fn == NULL){return TID_ERROR;}
+	strlcpy(copy_fn,file_name,PGSIZE);
+	
+	//char* argv[128];
+  char** argv = (char**)malloc(128*sizeof(char));
+  
+	// init to null
+	for(int i = 1; i < (128*sizeof(char))-1; i++) {
+		argv[i] = NULL;
+	}
+	
+  char *token;
+  char *save_ptr;
+>>>>>>> 17b385146076396f4553c4f07a6b9b976a2acff4
   argv[0] = strtok_r(copy_fn, " ", &save_ptr);
   int argc = 1; //firstcmd
   
@@ -399,7 +417,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
     argc++;
   } /* now argc will have number of cmds and argv will have tokenized command*/
 	
+<<<<<<< HEAD
 	argv[argc]= NULL;
+=======
+>>>>>>> 17b385146076396f4553c4f07a6b9b976a2acff4
 /*if no error set up stack*/
   int argc_count = argc;
 	
