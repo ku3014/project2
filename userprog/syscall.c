@@ -56,9 +56,14 @@ int write(int fd, const void *buffer, unsigned size);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+void valid_kernel(const void *check_valid);
 
 static bool is_user(const void* vaddr){
 	if(vaddr == NULL) {return false;}
+	
+	// User address not initalized
+	if(is_user_vaddr(vaddr) == false) {return false;}
+	
 	return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL); 
 }
 
@@ -83,8 +88,11 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  // int call = * (int *)f->esp;
-  // Check for which call it is
+	
+	/* Check if esp is valid */
+	const void *check_valid = (const void*)f->esp;
+	if (!is_user(check_valid)) {exit(TID_ERROR);}
+	
   int call = * (int *)f->esp;
   int args[3]; // 3 maxargs
 	
@@ -111,6 +119,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:                  
       {
 		check_arg(f, &args[0], 1);
+	  valid_kernel((const void*)args[0]);
 		f->eax = exec((const char*)args[0]);
         break;
       }
@@ -127,6 +136,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:               
       {
 		check_arg(f, &args[0],2);
+	  valid_kernel((const void*)args[0]);
 	  	f->eax = create((const char *)args[0], (unsigned)args[1]);
         break;
       }
@@ -135,6 +145,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_REMOVE:               
       {
 	  	check_arg(f, &args[0], 1);
+	  valid_kernel((const void*)args[0]);
 		f->eax = remove((const char *)args[0]);
         break;
       }
@@ -143,6 +154,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_OPEN:                  
       {
 		check_arg(f,&args[0],1);
+	  valid_kernel((const void*)args[0]);
 		f->eax = open((const char *)args[0]);
         break;
       }
@@ -159,6 +171,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:                  
       {
 	  	check_arg(f, &args[0], 3);
+	  valid_kernel((const void*)args[1]);
 	  	f->eax = read((int) args[0], (void *)args[1], (unsigned) args[2]);
         break;
       }
@@ -167,6 +180,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:                 
       {
 		check_arg(f,&args[0],3);
+	  valid_kernel((const void*)args[1]);
 		f->eax = write((int)args[0],(void *)args[1], (unsigned) args[2]);
         break;
       }
@@ -208,7 +222,7 @@ void check_arg(struct intr_frame *f, int *args, int paremc){
 	int count = paremc;
 	while(count > -1){
 		if(!is_user(f->esp+count)){
-		exit(-1);
+		exit(TID_ERROR);
 		}
 		count --;
 	}
@@ -304,15 +318,14 @@ When a single file is opened more than once, whether by a single process or diff
 	Different file descriptors for a single file are closed independently in separate calls to close and they do not share a file position. */
 int open (const char *file) {
 	
-
-	if(file == NULL){exit(-1);}
-if(!is_user(file)){exit(-1);}
 	char* file_to_open = string_to_page(file);
 	if(file_to_open == NULL){exit(-1);}	
+	
 	struct fd_elem *fd;
 	fd = malloc (sizeof *fd);
 	if(fd == NULL){exit(-1);}
 	int handle = -1;
+	
 	struct thread *current_thread = thread_current();
 	if(fd != NULL){
 		lock_acquire(&locker);
@@ -497,3 +510,14 @@ static bool put_user(uint8_t *udst, uint8_t byte) {
 	asm ("mov1 $1f, %0; movb %b2, %1: 1:" : "=&a" (error_code), "=m" (*udst) : "q" (byte));
 	return error_code != -1;
 }
+
+// 1. User programs cannot access kernel VM
+// 2. Kernal threads can access User VM ONLY if User VM is mapped already
+void valid_kernel(const void *check_valid) {
+	if (!is_user(check_valid)) {exit(TID_ERROR);}
+	
+	// Check if process has allocated page
+	void *page = pagedir_get_page(thread_current()->pagedir,check_valid);
+	if(!page) {exit(TID_ERROR);}
+}
+

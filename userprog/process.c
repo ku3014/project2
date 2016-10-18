@@ -373,39 +373,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 	
-//make a copy of file_name so i can change 
- // char* copy_fn[25];
-<<<<<<< HEAD
-	
 	//char* argv[128];
-  char* argv[24]; // = (char**)malloc(128*sizeof(char));
+  char* argv[24]; 
   
-	// init to null
-	/*
-	for(int i = 1; i < 127; i++) {
-		argv[i] = NULL;
-	}
-	*/
+
 	
   char *token;
  // char *save_ptr;
-=======
-	char* copy_fn;  
-	copy_fn = palloc_get_page (0);
-  	if (copy_fn == NULL){return TID_ERROR;}
-	strlcpy(copy_fn,file_name,PGSIZE);
-	
-	//char* argv[128];
-  char** argv = (char**)malloc(128*sizeof(char));
-  
-	// init to null
-	for(int i = 1; i < (128*sizeof(char))-1; i++) {
-		argv[i] = NULL;
-	}
-	
-  char *token;
-  char *save_ptr;
->>>>>>> 17b385146076396f4553c4f07a6b9b976a2acff4
   argv[0] = strtok_r(copy_fn, " ", &save_ptr);
   int argc = 1; //firstcmd
   
@@ -417,20 +391,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
     argc++;
   } /* now argc will have number of cmds and argv will have tokenized command*/
 	
-<<<<<<< HEAD
 	argv[argc]= NULL;
-=======
->>>>>>> 17b385146076396f4553c4f07a6b9b976a2acff4
 /*if no error set up stack*/
   int argc_count = argc;
 	
 	
-	
-   // uint32_t * argv_pointer[25];   
 	uint32_t ** argv_pointer = (uint32_t**) malloc(sizeof(uint32_t)*25);  
-/*uint32_t * argv_pointer[argc];*/
-/* this will point to the argument eg argv[0] --> ld\0*/
-/* uint32_t ** argv_pointer = (uint32_t**) palloc (sizeof(uint32_t) * argc);*/
+
 /*put int char for argv*/
 
 int tester = 0;
@@ -459,51 +426,13 @@ int tester = 0;
 	argc_count--;
   }
 
-	// char* teststring = malloc(sizeof(char)*10);
-	// tester = (strlen(argv[0])+1);
-	
-	//*esp = *esp - (tester); /* cmd put in from right to left ! so just use i instead of making new counter*/
-	
-	// argv_pointer[0] = (uint32_t *)*esp;				/*put in the address of esp to remember where argv[i] is*/
-
-	//memcpy(*esp,argv[0],tester);/*copy over , by doing strlen+1 i copy over null as well? or it's initialized to 0 from start*/
-    //memcpy(teststring,argv[0],tester);
-	//counter_letter = counter_letter + tester;	/*so shouldn't metter to much check here later if i get errors*/
-
-
-/*
-STACK top| return address = null
-            argc num command
-            argv points right under
-            argv 0
-            argv 1
-            arg ... last = null
-            empty space
-    esp-4        char from right to left            
-      esp-> pysicalbase or something
-*/
 int filler = counter_letter%4;
 
-/*char fillarr[filler+1];*/
-/*
-char* fillarr = (char*) malloc ( sizeof(char) * (filler+1));
-for(int c =0; c<filler; c++)
-{
-  fillarr[c] = '0';
-}
- if(filler != 0)
-  {
-    *esp = *esp - filler*sizeof(char);
-    memcpy(*esp,fillarr,filler);
-  }
-free(fillarr);
-*/
 
     *esp = *esp - filler;
      *esp = *esp - 4;
      (*(uint32_t *)(*esp)) = 0; /*  buffer 0 thing*/ 
-  /*  *esp = *esp - 4;
-    (*(uint32_t **)(*esp)) = 0;*/
+
 
   argc_count = argc;
 
@@ -521,8 +450,7 @@ free(fillarr);
     *esp = *esp - 4;
     (*(int *)(*esp))=0;    /* return address =0 */
 
-
- /*pfree(argv_pointer);*/
+	
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
