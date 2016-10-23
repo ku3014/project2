@@ -48,31 +48,40 @@ process_execute (const char *file_name)
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-     
-    fn_copy = palloc_get_page (0);
-      if (fn_copy == NULL){return TID_ERROR;}
     char *save_ptr;
-    fn_copy_ex = palloc_get_page(0);
+ 
+    fn_copy = palloc_get_page (0);
+	if (fn_copy == NULL){return TID_ERROR;}
     strlcpy (fn_copy, file_name, PGSIZE);
-    strlcpy (fn_copy_ex, file_name, PGSIZE);
-      file_name = strtok_r(file_name, " ", &save_ptr);
-    fn_copy_ex = strtok_r(fn_copy_ex, " ",&save_ptr);
+    
+	fn_copy_ex = palloc_get_page(0);
+	if(fn_copy_ex == NULL){return TID_ERROR;}
+	
+    strlcpy (fn_copy_ex, file_name, PGSIZE); 
+
+	char* pname = strtok_r(fn_copy, " ", &save_ptr);
+
       /* Create a new thread to execute FILE_NAME. */
      
-    tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-   
-    struct file *f = filesys_open(fn_copy_ex);
+    tid = thread_create (pname, PRI_DEFAULT, start_process, fn_copy_ex);
+
+    struct file *f = filesys_open(pname);
     if (f){// return -1;}
 
     file_deny_write(f);
-    palloc_free_page(fn_copy_ex);
+    palloc_free_page(fn_copy);
       cur->rox = f;
     }   
-    if (tid == TID_ERROR){palloc_free_page (fn_copy);}
+    if (tid == TID_ERROR){palloc_free_page (fn_copy_ex);}
       else{
         sema_down(&inited);
-        if(init == 1){process_status_add_child();}
-        sema_up(&inited);
+		struct thread *child = get_thread_with_tid(tid);
+		if(child == TID_ERROR){
+		thread_unblock(child);		
+		if(!child->success){ return -1;}
+		}
+		process_status_add_child();
+        //sema_up(&inited);
     }
     return tid;
 }
@@ -95,12 +104,18 @@ start_process (void *file_name_)
     
      /* If load failed, quit. */
       palloc_free_page (file_name);
-     
-    if (!success) { thread_exit ();}
+  	 
+	struct thread *cur = thread_current();
+	cur -> success = success;
+	
+ if (!success) { thread_exit ();}
       else{
-        process_status_init();
-    }
+	int fail =  process_status_init();
+    if(fail == -1){ cur->success = false;}
+		}
 
+		sema_up(&inited);   
+   
     /* Start the user process by simulating a return from an
         interrupt, implemented by intr_exit (in
          threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -164,7 +179,7 @@ process_exit (void)
       struct thread *cur = thread_current ();
       uint32_t *pd;
     if(cur->rox != NULL)
-    file_allow_write(cur->rox);
+    file_close(cur->rox);
       /* Destroy the current process's page directory and switch back
          to the kernel-only page directory. */
       pd = cur->pagedir;
@@ -182,7 +197,7 @@ process_exit (void)
               pagedir_destroy (pd);
         }
    
-    process_status_kill_self(cur->process_status, 1);
+    //process_status_kill_self(cur->process_status, 1);
     process_status_kill_the_children();
 
 }
@@ -308,7 +323,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done;
     }
 
-    file_deny_write(file);
+   // file_deny_write(file);
    
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -671,7 +686,13 @@ void process_status_kill_self(struct status *ps, int child_or_parent){
 
 void process_status_kill_the_children(void){
     struct thread *cur = thread_current();
-    struct list_elem *i;
+	if(cur->process_status != NULL){
+		struct status *child_status = cur->process_status;
+	//	printf("%s: exit(%d)\n", cur->name, child_status->exit_status);
+		process_status_kill_self(cur->process_status, 1);
+	}   
+	if(cur->process_status == NULL) {sema_up(&inited);}
+	struct list_elem *i;
     struct list_elem *next_child = list_begin(&(cur->child_processes));
     struct status *child_status;
     for(i = list_begin(&(cur->child_processes)); i != list_end(&(cur->child_processes)); i = next_child){
@@ -679,5 +700,5 @@ void process_status_kill_the_children(void){
         next_child = list_remove(i);
         process_status_kill_self(child_status, 2);
     }
-   
+	 
 }

@@ -72,6 +72,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+//struct thread *get_thread_with_tid(tid_t tid);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -98,8 +99,24 @@ thread_init (void)
   initial_thread->tid = allocate_tid ();
 }
 
+
+
+
+struct thread* get_thread_with_tid(tid_t tid){
+	struct list_elem *e;
+struct thread *t;	
+	for(e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e)){
+	
+	t = list_entry(e, struct thread, allelem);
+		if(t->tid==tid){
+			return t;
+		}
+	}
+	return NULL;
+	}
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
+
 void
 thread_start (void) 
 {

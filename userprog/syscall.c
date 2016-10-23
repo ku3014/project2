@@ -63,9 +63,8 @@ static bool is_user(const void* vaddr){
    
     // User address not initalized
     //if(is_user_vaddr(vaddr) == false) {return false;}
-    return(is_user_vaddr(vaddr)
-          && (pagedir_get_page(thread_current()->pagedir, vaddr) != NULL));
-    // return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL);
+    //return(is_user_vaddr(vaddr) && (pagedir_get_page(thread_current()->pagedir, vaddr) != NULL));
+     return (vaddr < PHYS_BASE && pagedir_get_page(thread_current()->pagedir, vaddr) != NULL);
 }
 
 struct fd_elem{
@@ -93,7 +92,9 @@ syscall_handler (struct intr_frame *f UNUSED)
    
     /* Check if esp is valid */
     const void *check_valid = (const void*)f->esp;
-    if (!is_user(check_valid)) {exit(TID_ERROR);}
+//    if 
+	//(!
+	valid_kernel(check_valid); //{exit(-1);}
    
   int call = * (int *)f->esp;
   int args[3]; // 3 maxargs
@@ -113,7 +114,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT:                 
       {
           check_arg(f, &args[0], 1);
-          exit((int)args[0]);
+   // valid_kernel((const void*)args[0]);
+        
+		    exit((int)args[0]);
         break;
       }
      
@@ -121,7 +124,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:                 
       {
         check_arg(f, &args[0], 1);
-      valid_kernel((const void*)args[0]);
+   //   valid_kernel((const void*)args[0]);
         f->eax = exec((const char*)args[0]);
         break;
       }
@@ -184,7 +187,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         check_arg(f,&args[0],3);
       valid_kernel((const void*)args[1]);
         f->eax = write((int)args[0],(void *)args[1], (unsigned) args[2]);
-        break;
+		break;
       }
      
     /* Change position in a file. */
@@ -213,7 +216,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     default:
     {
               exit(-1);
-              }
+     }
   }
  
   // thread_exit ();
@@ -224,7 +227,7 @@ void check_arg(struct intr_frame *f, int *args, int paremc){
     int count = paremc;
     while(count > -1){
         if(!is_user(f->esp+count)){
-        exit(TID_ERROR);
+        exit(-1);
         }
         count --;
     }
@@ -266,11 +269,12 @@ void exit (int status) {
 Must return pid -1, which otherwise should not be a valid pid, if the program cannot load or run for any reason. Thus, the parent process cannot return
 from the exec until it knows whether the child process successfully loaded its executable. You must use appropriate synchronization to ensure this. */
 tid_t exec (const char *cmd_line) {
-if(cmd_line == NULL){exit(-1);}
+//printf("made it to exec\n");
+if(cmd_line == NULL){return -1;exit(-1);}
 if(!is_user(cmd_line)){exit(-1);}
  tid_t tid;
  tid = process_execute(cmd_line);
-
+	//if(tid == TID_ERROR){return -1;}
 return tid;
 }
 
@@ -342,6 +346,7 @@ int open (const char *file) {
         }
         else{
             free(fd);
+		//	return -1;
         }
         lock_release(&locker);
     }       
@@ -400,7 +405,8 @@ write as many bytes as possible up to end-of-file and return the actual number w
 at least as long as size is not bigger than a few hundred bytes. (It is reasonable to break up larger buffers.) Otherwise,
 lines of text output by different processes may end up interleaved on the console, confusing both human readers and our grading scripts. */
 int write (int fd, const void *buffer, unsigned size) {
-    const char *buffer_byte = buffer;       
+	//printf("made it to here\n");   
+	 const char *buffer_byte = buffer;       
     if (buffer_byte == NULL){exit(-1);}
     if(!is_user(buffer_byte)){exit(-1);}
     struct fd_elem *f;
@@ -429,6 +435,7 @@ int write (int fd, const void *buffer, unsigned size) {
             }
             num_bytes_written = file_write(f->file, buffer_byte, size);
         }
+	//printf("hello\n");
     lock_release (&locker);
     return num_bytes_written;
 }
@@ -515,9 +522,9 @@ static bool put_user(uint8_t *udst, uint8_t byte) {
 // 1. User programs cannot access kernel VM
 // 2. Kernal threads can access User VM ONLY if User VM is mapped already
 void valid_kernel(const void *check_valid) {
-    if (!is_user(check_valid)) {exit(TID_ERROR);}
+    if (!is_user(check_valid)) {exit(-1);}
    
     // Check if process has allocated page
     void *page = pagedir_get_page(thread_current()->pagedir,check_valid);
-    if(!page) {exit(TID_ERROR);}
+    if(!page) {exit(-1);}
 }
