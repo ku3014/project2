@@ -46,7 +46,7 @@ void swap_in(size_t index, void * f){
 	if(bitmap_test(swap_table, index) == 0){return;}
 	bitmap_flip(swap_table, index);
 	for(size_t i = 0; i < PGSIZE/BLOCK_SECTOR_SIZE; i++){
-		block_write(swap_block, index * (PGSIZE/BLOCK_SECTOR_SIZE) + i,
+		block_read(swap_block, index * (PGSIZE/BLOCK_SECTOR_SIZE) + i,
 			    (uint8_t *) f + i *BLOCK_SECTOR_SIZE);
 	
 	}
